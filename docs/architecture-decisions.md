@@ -99,6 +99,17 @@ string is still the single source of truth for *changes*. **Wiring note:** `app/
 (commit 25) must pass `selected={context.filters}`, and render `FilterBar` inside a
 `<Suspense>` boundary (Next 16 requires it for `useSearchParams`).
 
+### D8 — Dashboard degrades gracefully instead of crashing (deviation)
+The spec's `app/page.tsx` called `getSentimentDashboardContext` with no error handling, so a
+selection with no record — or an empty dataset — would throw and render a blank 500 on the
+home route (the edge first flagged at D-commit 9). The page now catches that, and:
+- if data exists but the selection is empty, it still renders the `FilterBar` (via
+  `buildRecovery`) so the user can switch to a valid combination;
+- if no data is imported at all, it shows a "run the importer" message.
+Also resolves the D7 wiring: `FilterBar` is rendered inside `<Suspense>` (Next 16 requirement
+for `useSearchParams`) and receives `selected={context.filters}`. The assistant drawer is
+intentionally **not** mounted yet — it's added at commit 30 to keep every commit buildable.
+
 ## Caching posture (for later commits)
 
 Read APIs set `s-maxage`/`stale-while-revalidate`; the dashboard uses route-segment
