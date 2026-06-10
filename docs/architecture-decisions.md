@@ -80,9 +80,26 @@ recoverable*, but not *durably executed*. Minimum fix: `after()` from `next/serv
 keep the instance alive for the background work. Production answer: **Vercel Queues** or
 the **Workflow DevKit** for crash-safe, retryable execution. Affects commit 33.
 
+### D6 — Trend endpoint gets its own lean service path (deviation from spec)
+The spec's `app/api/sentiment/trend/route.ts` called `getSentimentDashboardContext` and
+returned only `.trend` — three queries (record + trend + catalogue) to serve one, and it
+would throw a 500 if the currently-selected *date* had no record, even though the trend
+series is date-independent. We added `getSentimentTrend(filters)` to the service: it
+normalises filters and calls the repository's `getTrend` directly (one query, returns `[]`
+rather than throwing). The route now uses it. Net: cheaper, and no false 500s on a route
+whose whole job is the time line.
+
 ## Caching posture (for later commits)
 
 Read APIs set `s-maxage`/`stale-while-revalidate`; the dashboard uses route-segment
-revalidation; a token-guarded `/api/revalidate` endpoint invalidates on demand. Next 16's
-Cache Components / `use cache` will be evaluated against the docs when those routes land —
-the header-based approach is kept where it makes the cache story easier to narrate.
+revalidation; a token-guarded `/api/revalidate` endpoint invalidates on demand.
+
+**Verified (commit 10):** `next.config.ts` does **not** enable Cache Components, so the
+classic caching model applies — `export const revalidate`, `dynamic`, `maxDuration` are all
+valid (Next 16 only *removes* `revalidate`/`dynamic`/`fetchCache` when Cache Components is
+on). We deliberately stay on the classic model: route handlers query Neon (so they're
+dynamic and never statically prerendered), and CDN caching comes purely from the
+`Cache-Control` header we return. That keeps the cache story easy to narrate — "the
+Function stays dynamic; the edge caches the response for 5 minutes" — rather than reasoning
+about `use cache`/`cacheLife` prerendering. Revisit if we want build-time prerendered API
+responses.
