@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "import:sentiment": "tsx scripts/import-sentiment-data.ts",
+    "evals": "tsx scripts/run-evals.ts",
+    "ci": "npm run typecheck && npm run lint && npm run evals && npm run build"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.69",
@@ -20,10 +25,10 @@
     "csv-parse": "^6.2.1",
     "nanoid": "^5.1.11",
     "next": "16.2.9",
-    "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
+    "server-only": "^0.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
