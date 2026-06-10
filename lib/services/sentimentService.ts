@@ -10,6 +10,7 @@ import type {
   SentimentComparison,
   SentimentDashboardContext,
   SentimentFilters,
+  SentimentTrendPoint,
 } from "@/lib/types";
 import type { ComparisonInput, RequiredSentimentFilters } from "@/lib/validation/sentiment";
 
@@ -71,6 +72,15 @@ export async function getSentimentDashboardContext(input: SentimentFilters): Pro
   }
 
   return { filters, record, trend, availableFilters };
+}
+
+// The trend series on its own, without requiring a record for any single date. The chart
+// shows a whole time line for an area/category, so it only needs the aggregation, area and
+// category resolved — fetching the full dashboard context here would be wasteful and would
+// fail if the currently-selected date happened to have no row.
+export async function getSentimentTrend(input: SentimentFilters): Promise<SentimentTrendPoint[]> {
+  const filters = await normaliseFilters(input);
+  return getTrend({ aggType: filters.aggType, areaName: filters.areaName, category: filters.category });
 }
 
 export async function getAreaComparison(input: ComparisonInput): Promise<SentimentComparison> {
