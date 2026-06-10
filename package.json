@@ -12,6 +12,7 @@
     "@ai-sdk/openai": "^3.0.69",
     "@ai-sdk/react": "^3.0.201",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/blob": "^2.4.0",
     "@vercel/speed-insights": "^2.0.0",
     "ai": "^6.0.199",
     "nanoid": "^5.1.11",
