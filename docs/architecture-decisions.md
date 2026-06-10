@@ -89,6 +89,16 @@ normalises filters and calls the repository's `getTrend` directly (one query, re
 rather than throwing). The route now uses it. Net: cheaper, and no false 500s on a route
 whose whole job is the time line.
 
+### D7 — FilterBar reflects the resolved selection, not raw query params (deviation)
+The spec's `FilterBar` defaulted each `<select>` to `options[0]` when its query param was
+absent. But the service defaults the *date* to the latest month, so on first load the
+dashboard showed the newest data while the Date control displayed the oldest option — a
+visible inconsistency. The component now takes a `selected: RequiredSentimentFilters` prop
+(the resolved selection the server rendered) and uses it for the displayed values; the query
+string is still the single source of truth for *changes*. **Wiring note:** `app/page.tsx`
+(commit 25) must pass `selected={context.filters}`, and render `FilterBar` inside a
+`<Suspense>` boundary (Next 16 requires it for `useSearchParams`).
+
 ## Caching posture (for later commits)
 
 Read APIs set `s-maxage`/`stale-while-revalidate`; the dashboard uses route-segment
