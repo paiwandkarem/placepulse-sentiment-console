@@ -194,6 +194,15 @@ async function main(): Promise<void> {
       process.stdout.write(` done\n`);
     }
 
+    if (!limit) {
+      // Both sentiment_suburbs and poi_place_suburb are present now, so build and refresh the
+      // Queensland suburb reference that scopes the dashboard and assistant to QLD.
+      process.stdout.write(`Refreshing qld_suburbs reference...`);
+      await client.query(readFileSync("lib/db/qld-suburbs.sql", "utf8"));
+      await client.query("refresh materialized view qld_suburbs");
+      process.stdout.write(` done\n`);
+    }
+
     await client.query(`update import_jobs set status = 'complete', rows_processed = $1, updated_at = now() where id = $2`, [totalRows, jobId]);
     const secs = Math.round((Date.now() - startedAt) / 1000);
     process.stdout.write(`\nLoad complete. ${totalRows.toLocaleString()} rows across ${targets.length} dataset(s) in ${secs}s.\n`);
