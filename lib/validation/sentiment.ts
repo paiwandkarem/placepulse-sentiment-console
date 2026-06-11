@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // One validation module shared by the REST routes, the server components and the AI tools.
 // Keeping the schemas here (rather than inline per route) means the dashboard, the API and
-// the assistant all enforce the same contract — the model can't call a tool with arguments
+// the assistant all enforce the same contract, so the model can't call a tool with arguments
 // the API would have rejected.
 
 // Loose filter shape: every field is optional. Used where the caller may supply a partial
@@ -12,16 +12,15 @@ export const sentimentFilterSchema = z.object({
   areaName: z.string().min(1).optional(),
   category: z.string().min(1).optional(),
   date: z.string().min(1).optional(),
-  startDate: z.string().min(1).optional(),
-  endDate: z.string().min(1).optional(),
 });
 
-// Strict filter shape: a fully-resolved selection that identifies exactly one record.
-// Mirrors RequiredSentimentFilters in lib/types — this is the runtime-enforced version.
+// Strict filter shape: a fully-resolved selection that identifies one record. Category is
+// optional: when absent the selection targets the suburb-level overall aggregate (every category
+// rolled together) rather than a single category.
 export const requiredSentimentFilterSchema = z.object({
   aggType: z.string().min(1),
   areaName: z.string().min(1),
-  category: z.string().min(1),
+  category: z.string().min(1).optional(),
   date: z.string().min(1),
 });
 
@@ -46,7 +45,5 @@ export function filtersFromSearchParams(searchParams: URLSearchParams) {
     areaName: searchParams.get("areaName") ?? undefined,
     category: searchParams.get("category") ?? undefined,
     date: searchParams.get("date") ?? undefined,
-    startDate: searchParams.get("startDate") ?? undefined,
-    endDate: searchParams.get("endDate") ?? undefined,
   });
 }

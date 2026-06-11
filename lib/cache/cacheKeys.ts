@@ -18,7 +18,7 @@ export const CACHE_TAGS = {
 //   stale-while-revalidate  -> for up to an hour after that, a stale response is served
 //                              instantly while a fresh one is fetched in the background.
 // Net effect: fast TTFB and low database/compute cost, with data that's at most ~5 minutes
-// behind — appropriate for monthly sentiment aggregates that rarely change intra-day.
+// behind, which suits monthly sentiment aggregates that rarely change intra-day.
 export const SENTIMENT_CACHE_HEADERS = {
   "Cache-Control": "s-maxage=300, stale-while-revalidate=3600",
 } as const;
