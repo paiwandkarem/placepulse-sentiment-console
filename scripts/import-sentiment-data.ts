@@ -71,13 +71,14 @@ function parseRows(filePath: string): RawRow[] {
   }) as RawRow[];
 }
 
-// Upsert keyed on query_key (unique in the schema) so re-running the import is idempotent:
-// a second load of the same export updates in place instead of duplicating.
+// Upsert keyed on the natural grain (agg_type, area_name, category, date) so re-running the
+// import is idempotent — a second load updates in place instead of duplicating. query_key is
+// NOT unique on its own: a suburb/period carries one row per category under the same key.
 async function importRow(row: RawRow): Promise<void> {
   const identity = requiredColumns.parse(row);
 
   await sql`
-    insert into sentiment_area_category_month (
+    insert into sentiment_suburbs (
       query_key, agg_type, date, area_name, category,
       poi_count, reviewed_poi_count, total_reviews, text_signal_reviews, theme_review_count,
       avg_rating, star_rating_sentiment_100, review_text_sentiment_100, overall_satisfaction_100,
@@ -100,12 +101,9 @@ async function importRow(row: RawRow): Promise<void> {
       ${JSON.stringify(jsonOrFallback(row.word_cloud_json, {}))}::jsonb,
       ${JSON.stringify(jsonOrFallback(row.top_reviews_json, {}))}::jsonb
     )
-    on conflict (query_key)
+    on conflict (agg_type, area_name, category, date)
     do update set
-      agg_type = excluded.agg_type,
-      date = excluded.date,
-      area_name = excluded.area_name,
-      category = excluded.category,
+      query_key = excluded.query_key,
       poi_count = excluded.poi_count,
       reviewed_poi_count = excluded.reviewed_poi_count,
       total_reviews = excluded.total_reviews,

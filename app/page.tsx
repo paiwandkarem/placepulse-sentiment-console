@@ -1,12 +1,18 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import dayjs from "dayjs";
 import { FilterBar } from "@/components/dashboard/FilterBar";
+import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { SentimentKpiCards } from "@/components/dashboard/SentimentKpiCards";
-import { SentimentTrendChart } from "@/components/dashboard/SentimentTrendChart";
-import { ThemeRankingPanel } from "@/components/dashboard/ThemeRankingPanel";
+import { SentimentOverTimeChart } from "@/components/dashboard/SentimentOverTimeChart";
+import { CategorySentimentBreakdown } from "@/components/dashboard/CategorySentimentBreakdown";
+import { SentimentDriversSection } from "@/components/dashboard/SentimentDriversSection";
 import { WordCloudPanel } from "@/components/dashboard/WordCloudPanel";
-import { EvidenceReviewsPanel } from "@/components/dashboard/EvidenceReviewsPanel";
-import { CoverageConfidencePanel } from "@/components/dashboard/CoverageConfidencePanel";
-import { DeploymentStatusCard } from "@/components/platform/DeploymentStatusCard";
+import { StarRatingDistribution } from "@/components/dashboard/StarRatingDistribution";
+import { SentimentLabelDistribution } from "@/components/dashboard/SentimentLabelDistribution";
+import { MapEdgeTab } from "@/components/dashboard/MapEdgeTab";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -16,22 +22,30 @@ import {
 } from "@/lib/services/sentimentService";
 import { sentimentFilterSchema } from "@/lib/validation/sentiment";
 
-// Server-rendered dashboard. All data is fetched on the server in one service call and the
-// page is statically revalidated every 5 minutes, matching the read-API cache window.
 export const revalidate = 300;
+
+// The map panel pulls in mapbox-gl and its CSS; code-split it so it only loads when a user opens
+// the map, keeping the default dashboard payload lean for the LCP path.
+const MapPanel = dynamic(() => import("@/components/dashboard/MapPanel").then((m) => m.MapPanel));
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-// A query param can arrive as a string or string[]; the dashboard only cares about a single
-// value per filter.
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+// Reflect the selected suburb in the document title so shared links and tabs are meaningful.
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const area = first(params.areaName);
+  return { title: area ? `${area} sentiment | PlacePulse` : "Sentiment | PlacePulse" };
+}
+
 export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
+  const mapOpen = first(params.map) === "1";
   const filters = sentimentFilterSchema.parse({
     aggType: first(params.aggType),
     areaName: first(params.areaName),
@@ -39,91 +53,190 @@ export default async function Home({ searchParams }: PageProps) {
     date: first(params.date),
   });
 
-  // The service throws when the resolved selection has no record (an unusual filter
-  // combination, or no data imported at all). Catch it here so the route degrades to a
-  // recoverable empty state instead of a 500 / blank screen.
-  let context = null;
+  // getSentimentDashboardContext returns null when the slice is simply empty, and throws on a real
+  // fault. The one expected throw is an entirely un-imported table; treat that as empty, log it,
+  // and let every other fault reach the error boundary rather than masking an outage as "no data".
+  let context: Awaited<ReturnType<typeof getSentimentDashboardContext>> = null;
   try {
     context = await getSentimentDashboardContext(filters);
-  } catch {
-    context = null;
+  } catch (error) {
+    if (!(error instanceof Error && error.message.includes("No sentiment data has been imported"))) {
+      throw error;
+    }
+    console.error(error);
   }
-
-  // When there's no record for the selection but data does exist, still render the filter bar
-  // so the user can pick a valid combination without editing the URL by hand.
   const recovery = context ? null : await buildRecovery(filters);
+  const catalogue = context?.availableFilters ?? recovery?.availableFilters ?? null;
+  const selected = context?.filters ?? recovery?.selected ?? null;
+  const latestMonth = context ? dayjs(context.filters.date).format("MMMM YYYY") : "";
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-6 text-zinc-950 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm md:p-8">
-          <p className="text-sm font-medium text-zinc-500">Vercel Solutions Architect Take-Home</p>
-          <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight md:text-6xl">
-            PlacePulse Sentiment Intelligence Console
-          </h1>
-          <p className="mt-4 max-w-3xl text-zinc-600">
-            Explore sentiment across Australian places, categories and time periods, then
-            generate AI-assisted evidence-backed briefings.
-          </p>
-        </header>
+    <>
+      {catalogue && selected && (
+        <div className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
+          <div className="px-4 py-3 md:px-8">
+            <Suspense fallback={<Skeleton className="h-12 w-full" />}>
+              <FilterBar catalogue={catalogue} selected={selected} mapOpen={mapOpen} />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
+      <div className="px-4 pb-16 pt-6 md:px-8">
+        <div className="mb-4 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex-1">
+            <div className="mb-2 flex items-center gap-3">
+              <h1 className="text-3xl font-extrabold text-gray-900">Sentiment</h1>
+            </div>
+            <p className="text-sm font-semibold text-gray-600">
+              How visitors rate and review each suburb, drawn from Google reviews: ratings, recurring themes, and
+              sentiment over the past three years.
+            </p>
+          </div>
+          {catalogue?.minDate && catalogue?.maxDate && (
+            <div className="shrink-0 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 shadow-sm">
+              Data available <span className="font-semibold text-gray-900">{catalogue.minDate}</span> to{" "}
+              <span className="font-semibold text-gray-900">{catalogue.maxDate}</span>
+            </div>
+          )}
+        </div>
+        <hr className="mb-8 border-gray-200" />
 
         {context ? (
-          <>
-            {/* FilterBar reads useSearchParams, so it sits behind a Suspense boundary — that
-                lets the static parts of the page prerender while the URL-dependent control
-                hydrates on the client. */}
-            <Suspense fallback={<Skeleton className="h-24 w-full" />}>
-              <FilterBar catalogue={context.availableFilters} selected={context.filters} />
-            </Suspense>
+          (() => {
+            // Overall mode rolls every category together (no category filter); specific-category
+            // mode drills into one. The page swaps a full category breakdown for a slim rank bar.
+            const isOverall = !context.filters.category;
+            const sorted = [...context.categoryBreakdown].sort(
+              (a, b) => b.overallSatisfaction100 - a.overallSatisfaction100,
+            );
+            const rank = sorted.findIndex((c) => c.category === context.filters.category) + 1;
+            const total = sorted.length;
+            const score = context.record.overallSatisfaction100;
+            return (
+              <>
+                {!isOverall && (
+                  <div className="mb-8 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm">
+                    <span className="font-semibold text-gray-900">
+                      {context.filters.category}
+                      {rank > 0 && (
+                        <span className="font-normal text-gray-600">
+                          {" "}
+                          &middot; #{rank} of {total} categories in {context.filters.areaName}
+                        </span>
+                      )}{" "}
+                      <span className="font-normal text-gray-600">&middot; {score.toFixed(1)}/100</span>
+                    </span>
+                    <Link
+                      href={`/?aggType=mthly_suburb&areaName=${encodeURIComponent(context.filters.areaName)}`}
+                      className="shrink-0 font-semibold text-emerald-700 hover:underline"
+                    >
+                      View all categories
+                    </Link>
+                  </div>
+                )}
 
-            <SentimentKpiCards record={context.record} />
+                <section id="overview" className="mb-8 scroll-mt-24">
+              <SectionHeader
+                title="How satisfied are visitors with this suburb?"
+                subtitle={`Headline sentiment for ${latestMonth}, compared with the same month a year earlier.`}
+              />
+              <SentimentKpiCards record={context.record} trend={context.trend} />
+            </section>
 
-            <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-              <SentimentTrendChart trend={context.trend} />
-              <CoverageConfidencePanel record={context.record} />
-            </div>
+            <section id="trend" className="mb-8 scroll-mt-24">
+              <SectionHeader
+                title="How has sentiment moved over the past three years?"
+                subtitle="Monthly overall sentiment, with each calendar month aligned across the last three years for seasonal comparison."
+              />
+              <SentimentOverTimeChart trend={context.trend} />
+            </section>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-              <ThemeRankingPanel themes={context.record.themes} />
+            {isOverall && (
+              <section id="categories" className="mb-8 scroll-mt-24">
+                <SectionHeader
+                  title="Which categories shape sentiment in this suburb?"
+                  subtitle={`Overall sentiment by business category for ${context.filters.areaName} in ${latestMonth}. Select a category to view it in detail.`}
+                />
+                <CategorySentimentBreakdown
+                  categories={context.categoryBreakdown}
+                  areaLabel={context.filters.areaName}
+                />
+              </section>
+            )}
+
+            <section id="drivers" className="mb-8 scroll-mt-24">
+              <SectionHeader
+                title="What is driving positive and negative reviews?"
+                subtitle="Recurring themes grouped into what is working, what is not, and mixed reception. Hover a theme for its full sentiment split and year-on-year change, or open representative reviews."
+              />
+              <SentimentDriversSection
+                drivers={context.drivers}
+                reviews={context.record.topReviews}
+                areaLabel={context.filters.areaName}
+              />
+            </section>
+
+            <section id="words" className="mb-8 scroll-mt-24">
+              <SectionHeader
+                title="Which words appear most across reviews?"
+                subtitle={`The most frequent words in positive, negative, and neutral reviews for ${latestMonth}. A word can appear in more than one tone where reviewers use it differently.`}
+              />
               <WordCloudPanel wordCloud={context.record.wordCloud} />
-              <EvidenceReviewsPanel reviews={context.record.topReviews} />
-            </div>
+            </section>
 
-            <DeploymentStatusCard />
-
-            {/* SentimentAssistantDrawer is mounted here in commit 30, once the AI chat route
-                and the drawer component exist. */}
-          </>
+            <section id="distributions" className="mb-8 scroll-mt-24">
+              <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+                <div className="flex flex-col">
+                  <SectionHeader
+                    title="How are star ratings distributed?"
+                    subtitle={`Share of reviews by star rating in ${latestMonth}.`}
+                  />
+                  <StarRatingDistribution record={context.record} />
+                </div>
+                <div className="flex flex-col">
+                  <SectionHeader
+                    title="How does review sentiment break down by tone?"
+                    subtitle={`Share of reviews that are positive, neutral, or negative in ${latestMonth}.`}
+                  />
+                  <SentimentLabelDistribution record={context.record} />
+                </div>
+              </div>
+            </section>
+              </>
+            );
+          })()
         ) : (
-          <>
-            {recovery ? (
-              <Suspense fallback={<Skeleton className="h-24 w-full" />}>
-                <FilterBar catalogue={recovery.availableFilters} selected={recovery.selected} />
-              </Suspense>
-            ) : null}
-            <Card>
-              <h2 className="text-lg font-semibold">No sentiment data for this selection</h2>
-              <p className="mt-2 text-sm text-zinc-600">
-                {recovery
-                  ? "Try a different area, category, date or aggregation above."
-                  : "No sentiment data has been imported yet — run the importer to load data."}
-              </p>
-            </Card>
-          </>
+          <Card title="No sentiment data for this selection">
+            <p className="text-sm text-gray-600">
+              {recovery
+                ? "Try a different area, category, period or granularity above."
+                : "No sentiment data has been imported yet. Run the importer to load data."}
+            </p>
+          </Card>
         )}
       </div>
-    </main>
+
+      {/* Right-edge tab to open the map (in addition to the filter-bar toggle) */}
+      <MapEdgeTab mapOpen={mapOpen} />
+
+      {/* Map slide-over drawer */}
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 w-full transform bg-gray-50 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-[420px] ${
+          mapOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        {mapOpen && selected && <MapPanel suburbs={catalogue?.areaNames ?? []} selected={selected.areaName} />}
+      </aside>
+    </>
   );
 }
 
-// Best-effort data for the empty state. Returns the catalogue plus a resolved selection when
-// any data exists, or null when the dataset is empty / unavailable.
+// When the slice has no record, offer the filter catalogue so the user can pick another suburb or
+// category. An empty catalogue means nothing has been imported (the no-data card). Real faults are
+// left to propagate to the error boundary.
 async function buildRecovery(filters: Parameters<typeof normaliseFilters>[0]) {
-  try {
-    const availableFilters = await listAvailableFilters();
-    if (availableFilters.areaNames.length === 0) return null;
-    return { availableFilters, selected: await normaliseFilters(filters) };
-  } catch {
-    return null;
-  }
+  const availableFilters = await listAvailableFilters();
+  if (availableFilters.areaNames.length === 0) return null;
+  return { availableFilters, selected: await normaliseFilters(filters) };
 }
