@@ -16,8 +16,8 @@ import { placeDetail, placeThemes, placesInSuburb, reviewEvidence } from "@/lib/
 // same contract the REST routes enforce, so a malformed tool call is rejected before it runs.
 //
 // Two tiers of coverage:
-//   - Suburb tools (national): sentiment, trend, drivers, category breakdown, comparison.
-//   - Place tools (Queensland only): individual businesses, their themes, and real review quotes.
+//   - Suburb tools: sentiment, trend, drivers, category breakdown, comparison.
+//   - Place tools: individual businesses, their themes, and real review quotes.
 
 const round = (value: number, digits = 1): number => {
   const factor = 10 ** digits;
@@ -34,7 +34,7 @@ const CATEGORY = z
 export const assistantTools = {
   listSuburbs: tool({
     description:
-      "List available suburbs (national coverage). Use this to resolve or disambiguate a suburb name before calling another tool when you are unsure of the exact spelling.",
+      "List available suburbs. Use this to resolve or disambiguate a suburb name before calling another tool when you are unsure of the exact spelling.",
     inputSchema: z.object({
       prefix: z.string().optional().describe("Only return suburbs starting with this text."),
       limit: z.number().int().min(1).max(50).default(20),
@@ -50,7 +50,7 @@ export const assistantTools = {
 
   suburbSentiment: tool({
     description:
-      "Overall sentiment for a suburb at the latest month (national coverage): satisfaction score out of 100, average star rating, review volume and the positive/negative/neutral split. Pass a category to narrow to one business type.",
+      "Overall sentiment for a suburb at the latest month: satisfaction score out of 100, average star rating, review volume and the positive/negative/neutral split. Pass a category to narrow to one business type.",
     inputSchema: z.object({ suburb: SUBURB, category: CATEGORY }),
     execute: async ({ suburb, category }) => {
       const ctx = await getSentimentDashboardContext({
@@ -77,7 +77,7 @@ export const assistantTools = {
 
   sentimentTrend: tool({
     description:
-      "Monthly satisfaction trend over time for a suburb (national). Use for questions about whether a suburb is improving or declining.",
+      "Monthly satisfaction trend over time for a suburb. Use for questions about whether a suburb is improving or declining.",
     inputSchema: z.object({ suburb: SUBURB, category: CATEGORY }),
     execute: async ({ suburb, category }) => {
       const trend = await getSentimentTrend({ areaName: suburb, category, aggType: aggTypeForCategory(category) });
@@ -95,7 +95,7 @@ export const assistantTools = {
 
   sentimentDrivers: tool({
     description:
-      "The themes driving a suburb's sentiment (national): what is working and what is not, ranked, with the year-on-year change in each. Use for questions about what is driving positive or negative sentiment.",
+      "The themes driving a suburb's sentiment: what is working and what is not, ranked, with the year-on-year change in each. Use for questions about what is driving positive or negative sentiment.",
     inputSchema: z.object({ suburb: SUBURB, category: CATEGORY, limit: z.number().int().min(1).max(12).default(6) }),
     execute: async ({ suburb, category, limit }) => {
       const ctx = await getSentimentDashboardContext({
@@ -121,7 +121,7 @@ export const assistantTools = {
 
   categoryBreakdown: tool({
     description:
-      "Sentiment for every business category in a suburb at the latest month (national). Use for questions about which categories create the most friction or perform best.",
+      "Sentiment for every business category in a suburb at the latest month. Use for questions about which categories create the most friction or perform best.",
     inputSchema: z.object({ suburb: SUBURB }),
     execute: async ({ suburb }) => {
       const ctx = await getSentimentDashboardContext({ areaName: suburb, aggType: aggTypeForCategory(undefined) });
@@ -143,7 +143,7 @@ export const assistantTools = {
 
   compareSuburbs: tool({
     description:
-      "Compare two suburbs head to head (national): each one's satisfaction, rating, review volume and sentiment split, plus the gap between them. Optionally narrow to one category.",
+      "Compare two suburbs head to head: each one's satisfaction, rating, review volume and sentiment split, plus the gap between them. Optionally narrow to one category.",
     inputSchema: z.object({ suburbA: z.string().min(1), suburbB: z.string().min(1), category: CATEGORY }),
     execute: async ({ suburbA, suburbB, category }) => {
       const aggType = aggTypeForCategory(category);
@@ -179,7 +179,7 @@ export const assistantTools = {
 
   placesInSuburb: tool({
     description:
-      "Individual businesses in a suburb (Queensland only): the most reviewed or highest rated places, with their rating and review count. Use when the user asks about specific venues, not suburb-level sentiment.",
+      "Individual businesses in a suburb: the most reviewed or highest rated places, with their rating and review count. Use when the user asks about specific venues, not suburb-level sentiment.",
     inputSchema: z.object({
       suburb: SUBURB,
       sort: z.enum(["reviews", "rating"]).default("reviews"),
@@ -193,7 +193,7 @@ export const assistantTools = {
 
   placeThemes: tool({
     description:
-      "The theme breakdown for one business (Queensland only) by its place id: each theme's review count and sentiment. Get a place id from placesInSuburb first.",
+      "The theme breakdown for one business by its place id: each theme's review count and sentiment. Get a place id from placesInSuburb first.",
     inputSchema: z.object({ placeId: z.string().min(1), limit: z.number().int().min(1).max(25).default(10) }),
     execute: async ({ placeId, limit }) => {
       const detail = await placeDetail(placeId);
@@ -205,7 +205,7 @@ export const assistantTools = {
 
   reviewEvidence: tool({
     description:
-      "Real customer review quotes (Queensland only), the evidence behind a sentiment claim. Filter by a place id or a suburb, and optionally by sentiment. Use to support an answer with what people actually wrote.",
+      "Real customer review quotes, the evidence behind a sentiment claim. Filter by a place id or a suburb, and optionally by sentiment. Use to support an answer with what people actually wrote.",
     inputSchema: z.object({
       placeId: z.string().min(1).optional(),
       suburb: z.string().min(1).optional(),

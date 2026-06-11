@@ -158,13 +158,14 @@ function mapRecord(row: DbRow): SentimentRecord {
 }
 
 // Distinct values that drive the filter UI, collected in a single round trip. A plain
-// `array_agg(distinct ...)` reads every one of the millions of rows four times over; at this
-// table size that is several seconds and dominates a cold page load. Instead each dimension
-// uses a recursive "loose index scan" (skip scan): starting from the smallest value, repeatedly
-// jump to the next value strictly greater than the last. With a btree on the column that is one
-// index descent per distinct value, so the cost scales with the number of options (hundreds),
-// not the number of rows (millions). Needs ix_ss_area / ix_ss_category / ix_ss_date plus the
-// agg_type-leading ix_ss_grain. Categories skip the suburb-level nulls.
+// `array_agg(distinct ...)` reads every one of the millions of rows over; at this table size that
+// is several seconds and dominates a cold page load. agg_type, category and date each use a
+// recursive "loose index scan" (skip scan): starting from the smallest value, repeatedly jump to
+// the next value strictly greater than the last. With a btree on the column that is one index
+// descent per distinct value, so the cost scales with the number of options (a few), not the
+// number of rows (millions). Needs ix_ss_category / ix_ss_date plus the agg_type-leading
+// ix_ss_grain. Categories skip the suburb-level nulls. Suburbs are read straight from the
+// qld_suburbs reference, which scopes the whole product to Queensland.
 export async function listFilters(): Promise<FilterCatalogue> {
   const rows = await sql`
     with recursive
@@ -173,12 +174,6 @@ export async function listFilters(): Promise<FilterCatalogue> {
       union all
       select (select agg_type from sentiment_suburbs where agg_type > agg.a order by agg_type limit 1)
       from agg where agg.a is not null
-    ),
-    ar as (
-      (select area_name a from sentiment_suburbs order by area_name limit 1)
-      union all
-      select (select area_name from sentiment_suburbs where area_name > ar.a order by area_name limit 1)
-      from ar where ar.a is not null
     ),
     cat as (
       (select category a from sentiment_suburbs where category is not null order by category limit 1)
@@ -194,7 +189,7 @@ export async function listFilters(): Promise<FilterCatalogue> {
     )
     select
       (select array_agg(a order by a) from agg where a is not null) as agg_types,
-      (select array_agg(a order by a) from ar where a is not null) as area_names,
+      (select array_agg(name order by name) from qld_suburbs) as area_names,
       (select array_agg(a order by a) from cat where a is not null) as categories,
       (select array_agg(d::text order by d::text) from dt where d is not null) as dates
   `;
@@ -234,13 +229,14 @@ export async function getRecord(filters: RequiredSentimentFilters): Promise<Sent
 }
 
 // A real, data-rich slice to open the dashboard on. We open on the most-reviewed suburb-level
-// monthly overall slice (no category), so the first view is the headline sentiment for the
-// busiest area, with the per-category breakdown a click away.
+// monthly overall slice (no category) within Queensland, so the first view is the headline
+// sentiment for the busiest QLD area, with the per-category breakdown a click away.
 export async function getDefaultSlice(): Promise<RequiredSentimentFilters | null> {
   const rows = await sql`
     select agg_type, area_name, category, date::text as date
     from sentiment_suburbs
     where agg_type = ${MONTHLY_OVERALL_AGG}
+      and area_name in (select name from qld_suburbs)
     order by total_reviews desc nulls last
     limit 1
   `;
