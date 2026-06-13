@@ -3,7 +3,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, ChevronLeft, ChevronRight, FileText, Gauge, HelpCircle, LayoutDashboard } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight, FileText, Gauge, HelpCircle, LayoutDashboard, MapPin } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 
 // Application shell: a fixed, collapsible left sidebar with the main content offset beside it
@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "AI assistant", icon: Bot, href: "/assistant" },
   { label: "Briefs", icon: FileText, href: "/briefs" },
+  { label: "Places", icon: MapPin, href: "/places" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
