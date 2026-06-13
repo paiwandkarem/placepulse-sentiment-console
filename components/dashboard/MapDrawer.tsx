@@ -1,0 +1,37 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { cn } from "@/lib/ui/sentiment";
+import { Spinner } from "@/components/ui/Spinner";
+import { useMapDrawer } from "./MapDrawerContext";
+
+// The map pulls in mapbox-gl, its CSS and a multi-megabyte boundary file, so it is code-split and
+// only loads on the client when the drawer first opens. Because this is a Client Component, the
+// import can be ssr:false (it cannot in the Server page), and a spinner shows while mapbox loads.
+const MapPanel = dynamic(() => import("./MapPanel").then((module) => module.MapPanel), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center">
+      <Spinner />
+    </div>
+  ),
+});
+
+// The slide-over drawer. The aside is always mounted, so flipping the transform class animates
+// immediately on toggle (no server round-trip, no wait on the map's data). The map itself mounts
+// on first open and then stays mounted, so reopening is instant.
+export function MapDrawer({ suburbs, selected }: { suburbs: string[]; selected: string | null }) {
+  const { open, hasOpened } = useMapDrawer();
+
+  return (
+    <aside
+      aria-hidden={!open}
+      className={cn(
+        "fixed inset-y-0 right-0 z-50 w-full transform bg-gray-50 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-[420px]",
+        open ? "translate-x-0" : "pointer-events-none translate-x-full",
+      )}
+    >
+      {hasOpened && selected && <MapPanel suburbs={suburbs} selected={selected} />}
+    </aside>
+  );
+}
