@@ -3,7 +3,6 @@ import { tool } from "ai";
 import { z } from "zod";
 import { aggTypeForCategory } from "@/lib/filters";
 import {
-  getAreaComparison,
   getSentimentDashboardContext,
   getSentimentTrend,
   listAvailableFilters,
@@ -216,6 +215,56 @@ export const assistantTools = {
       if (!placeId && !suburb) return { error: "Provide either a placeId or a suburb to pull review quotes." };
       const quotes = await reviewEvidence({ placeId, suburb, sentiment, limit });
       return { count: quotes.length, quotes };
+    },
+  }),
+
+  setDashboardFilter: tool({
+    description:
+      "Change what the dashboard is showing. Use when the user asks to see, open, show, switch or take them to a suburb or a business category on the dashboard. The dashboard updates to match. Pass a category to focus one business type, or omit it for the suburb's overall view. This only changes the view; it does not answer the question on its own.",
+    inputSchema: z.object({
+      suburb: SUBURB.optional().describe("The suburb to show on the dashboard."),
+      category: CATEGORY,
+    }),
+    execute: async ({ suburb, category }) => {
+      if (!suburb && !category) {
+        return { applied: false, reason: "Name a suburb or category to show on the dashboard." };
+      }
+
+      // Resolve the requested names against the real catalogue so the dashboard is only ever sent a
+      // suburb and category that exist. An exact match wins; otherwise fall back to a prefix match.
+      const { areaNames, categories } = await listAvailableFilters();
+
+      let areaName: string | undefined;
+      if (suburb) {
+        const needle = suburb.toLowerCase();
+        areaName =
+          areaNames.find((name) => name.toLowerCase() === needle) ??
+          areaNames.find((name) => name.toLowerCase().startsWith(needle));
+        if (!areaName) return { applied: false, reason: `No Queensland suburb matches "${suburb}".` };
+      }
+
+      let resolvedCategory: string | undefined;
+      if (category) {
+        const needle = category.toLowerCase();
+        resolvedCategory =
+          categories.find((entry) => entry.toLowerCase() === needle) ??
+          categories.find((entry) => entry.toLowerCase().startsWith(needle));
+        if (!resolvedCategory) return { applied: false, reason: `No category matches "${category}".` };
+      }
+
+      // Build the URL on the same contract the dashboard and the filter bar already use, so the view
+      // updates through normal navigation rather than a bespoke channel.
+      const params = new URLSearchParams();
+      if (areaName) params.set("areaName", areaName);
+      params.set("aggType", aggTypeForCategory(resolvedCategory));
+      if (resolvedCategory) params.set("category", resolvedCategory);
+
+      return {
+        applied: true,
+        areaName: areaName ?? null,
+        category: resolvedCategory ?? "overall",
+        url: `/?${params.toString()}`,
+      };
     },
   }),
 } as const;
