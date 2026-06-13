@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { getPlacesDirectory } from "@/lib/services/placesService";
 import { PlacesControls } from "@/components/places/PlacesControls";
+import { PlacesMapPanel } from "@/components/places/PlacesMapPanel";
+import { Pagination } from "@/components/places/Pagination";
 import { Card } from "@/components/ui/Card";
 import type { PoiPlace } from "@/lib/repositories/poiRepository";
 
@@ -62,6 +64,8 @@ export default async function PlacesPage({ searchParams }: PageProps) {
 
       <PlacesControls categories={directory.categories} selected={{ query, suburb, category, sort }} />
 
+      <PlacesMapPanel key={`${query}|${suburb}|${category}`} filters={{ query, suburb, category }} />
+
       <p className="mt-6 mb-3 text-sm text-gray-500">
         {directory.total.toLocaleString()} place{directory.total === 1 ? "" : "s"}
         {category ? ` in ${category}` : ""}
@@ -80,15 +84,7 @@ export default async function PlacesPage({ searchParams }: PageProps) {
         </ul>
       )}
 
-      {totalPages > 1 && (
-        <nav className="mt-8 flex items-center justify-between">
-          <PageLink href={pageHref(page - 1)} disabled={page <= 1} direction="prev" />
-          <span className="text-sm text-gray-500">
-            Page {page} of {totalPages.toLocaleString()}
-          </span>
-          <PageLink href={pageHref(page + 1)} disabled={page >= totalPages} direction="next" />
-        </nav>
-      )}
+      <Pagination page={page} totalPages={totalPages} hrefFor={pageHref} className="mt-8" />
     </div>
   );
 }
@@ -116,22 +112,3 @@ function PlaceCard({ place }: { place: PoiPlace }) {
   );
 }
 
-function PageLink({ href, disabled, direction }: { href: string; disabled: boolean; direction: "prev" | "next" }) {
-  const label = direction === "prev" ? "Previous" : "Next";
-  const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
-  const content = (
-    <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700">
-      {direction === "prev" && <Icon className="h-4 w-4" />}
-      {label}
-      {direction === "next" && <Icon className="h-4 w-4" />}
-    </span>
-  );
-  if (disabled) {
-    return <span className="pointer-events-none opacity-40">{content}</span>;
-  }
-  return (
-    <Link href={href} className="hover:[&>span]:bg-gray-50">
-      {content}
-    </Link>
-  );
-}

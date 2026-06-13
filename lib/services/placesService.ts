@@ -1,11 +1,14 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import {
   listPlaceCategories,
   placeDetail,
+  placePoints,
   placeReviews,
   placeThemes,
   placeWordTerms,
   searchPlaces,
+  type PlacePoint,
   type PlaceReviewPage,
   type PlaceSearchResult,
   type PlaceWordTerm,
@@ -19,6 +22,23 @@ import {
 
 export type PlacesDirectory = PlaceSearchResult & { categories: string[] };
 
+// The category list is an expensive group-by that only changes on a re-import, yet every directory
+// load needs it. Cache it independently with a long TTL, the same way the dashboard caches its filter
+// catalogue, so it is computed roughly once an hour rather than per request.
+const cachedPlaceCategories = unstable_cache(listPlaceCategories, ["place-categories"], { revalidate: 3600 });
+
+async function placeCategories(): Promise<string[]> {
+  try {
+    return await cachedPlaceCategories();
+  } catch (error) {
+    // No incremental cache outside a Next request (e.g. a script); fall back to the uncached query.
+    if (error instanceof Error && error.message.includes("incrementalCache")) {
+      return listPlaceCategories();
+    }
+    throw error;
+  }
+}
+
 export async function getPlacesDirectory(opts: {
   query?: string;
   suburb?: string;
@@ -26,8 +46,16 @@ export async function getPlacesDirectory(opts: {
   sort?: "reviews" | "rating";
   page?: number;
 }): Promise<PlacesDirectory> {
-  const [results, categories] = await Promise.all([searchPlaces(opts), listPlaceCategories()]);
+  const [results, categories] = await Promise.all([searchPlaces(opts), placeCategories()]);
   return { ...results, categories };
+}
+
+export async function getPlacePoints(opts: {
+  query?: string;
+  suburb?: string;
+  category?: string;
+}): Promise<PlacePoint[]> {
+  return placePoints(opts);
 }
 
 export type PlaceProfile = {

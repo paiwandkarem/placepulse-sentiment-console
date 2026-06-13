@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
+import { humaniseTheme } from "@/lib/sentiment/themeBuckets";
 
 // Data access for the Queensland place-level tables loaded from the POI export. Mirrors the
 // sentiment repository's contract: this is the only place that talks SQL to the poi_* tables,
@@ -127,7 +128,7 @@ export async function placeThemes(placeId: string, limit = 10): Promise<PoiPlace
     [placeId, clamp(limit, 1, 25)],
   )) as DbRow[];
   return rows.map((row) => ({
-    theme: String(row.theme ?? ""),
+    theme: humaniseTheme(String(row.theme ?? "")),
     reviewCount: toNumber(row.review_count),
     avgSentiment100: toSentiment100(row.avg_sentiment_score),
     positiveCount: toNumber(row.positive_count),
@@ -333,6 +334,53 @@ export async function placeWordTerms(placeId: string, limit = 30): Promise<Place
     term: String(row.term ?? ""),
     mentions: toNumber(row.mentions),
     sentiment: String(row.sentiment_label ?? "neutral"),
+  }));
+}
+
+export type PlacePoint = { placeId: string; name: string; lat: number; lon: number; rating: number };
+
+// Map points for the directory's filters: places with coordinates, capped, most reviewed first. The
+// cap keeps the payload to the client bounded; the map clusters them, so a few hundred reads well.
+export async function placePoints(
+  opts: { query?: string; suburb?: string; category?: string },
+  limit = 500,
+): Promise<PlacePoint[]> {
+  const where: string[] = [
+    "coalesce(p.permanently_closed, false) = false",
+    "p.lat is not null",
+    "p.lon is not null",
+  ];
+  const params: unknown[] = [];
+  if (opts.query && opts.query.trim().length >= 2) {
+    params.push(`%${opts.query.trim()}%`);
+    where.push(`p.name ilike $${params.length}`);
+  }
+  if (opts.suburb) {
+    params.push(opts.suburb);
+    where.push(`lower(s.suburb_name) = lower($${params.length})`);
+  }
+  if (opts.category) {
+    params.push(opts.category);
+    where.push(`lower(p.category) = lower($${params.length})`);
+  }
+  params.push(clamp(limit, 1, 1000));
+
+  const rows = (await sql.query(
+    `select p.place_id, p.name, p.lat, p.lon, p.rating
+       from poi_places p
+       join poi_place_suburb s on s.place_id = p.place_id
+      where ${where.join(" and ")}
+      order by p.reviews_count desc nulls last
+      limit $${params.length}`,
+    params,
+  )) as DbRow[];
+
+  return rows.map((row) => ({
+    placeId: String(row.place_id ?? ""),
+    name: String(row.name ?? ""),
+    lat: toNumber(row.lat),
+    lon: toNumber(row.lon),
+    rating: toNumber(row.rating),
   }));
 }
 
