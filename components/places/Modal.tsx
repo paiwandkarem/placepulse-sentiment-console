@@ -1,43 +1,52 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
+import { cn } from "@/lib/ui/sentiment";
 
-// The slide-over chrome for the intercepted place route. It renders over the map explorer; closing
-// (backdrop click, the close button, Escape, or browser back) calls router.back(), which dismisses
-// the intercepted modal and returns to /places. The content inside stays a Server Component.
+// The slide-over chrome for the intercepted place route, styled like the dashboard's map drawer: a
+// right-edge panel that slides in over the map and out on close. It mounts off-screen and animates to
+// open on the next frame, so it never pops in. No dimming backdrop, so the map stays visible and
+// interactive beside it (clicking another point swaps the panel). Close via the button, Escape, or
+// browser back, which dismisses the intercepted route and returns to /places.
 export function Modal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [shown, setShown] = useState(false);
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(true));
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") router.back();
     }
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     return () => {
+      cancelAnimationFrame(frame);
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
     };
   }, [router]);
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Close" onClick={() => router.back()} className="absolute inset-0 cursor-default bg-black/30" />
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-end border-b border-gray-100 bg-white/90 px-4 py-3 backdrop-blur">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            aria-label="Close place"
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 pb-10 pt-3">{children}</div>
+    <aside
+      role="dialog"
+      aria-label="Place details"
+      className={cn(
+        "fixed inset-y-0 right-0 z-40 flex w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-[460px]",
+        shown ? "translate-x-0" : "translate-x-full",
+      )}
+    >
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Place details</span>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="Close place"
+          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
-    </div>
+      <div className="flex-1 overflow-y-auto px-5 pb-10 pt-3">{children}</div>
+    </aside>
   );
 }

@@ -15,6 +15,10 @@ import type { PlacePoint } from "@/lib/repositories/poiRepository";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MapboxFeature = any;
 
+// The Queensland suburb boundaries (the dashboard map's source) double as a navigation layer here:
+// visible when zoomed out, faded when zoomed in, and clicking one drills into that suburb.
+const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL;
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => {
     const map: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -54,8 +58,13 @@ function toFeatureCollection(points: PlacePoint[]) {
   };
 }
 
-export function PlacesMap({ points }: { points: PlacePoint[] }) {
+export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; onSelectSuburb?: (suburb: string) => void }) {
   const router = useRouter();
+  // Kept in a ref so the map (created once) always calls the latest handler without re-creating.
+  const onSelectSuburbRef = useRef(onSelectSuburb);
+  useEffect(() => {
+    onSelectSuburbRef.current = onSelectSuburb;
+  }, [onSelectSuburb]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
@@ -87,6 +96,62 @@ export function PlacesMap({ points }: { points: PlacePoint[] }) {
         map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
 
         map.on("load", () => {
+          // Suburb boundaries first, so the place points and clusters sit on top and win clicks.
+          if (BOUNDARY_URL) {
+            map.addSource("suburbs", { type: "geojson", data: BOUNDARY_URL, promoteId: "areaName" });
+            map.addLayer({
+              id: "suburb-fill",
+              type: "fill",
+              source: "suburbs",
+              paint: {
+                "fill-color": "#10b981",
+                // Fades out as you zoom in (boundaries are context, points take over).
+                "fill-opacity": [
+                  "interpolate",
+                  ["linear"],
+                  ["zoom"],
+                  5,
+                  ["case", ["boolean", ["feature-state", "hover"], false], 0.3, 0.1],
+                  9,
+                  ["case", ["boolean", ["feature-state", "hover"], false], 0.2, 0.04],
+                  11,
+                  0,
+                ],
+              },
+            });
+            map.addLayer({
+              id: "suburb-line",
+              type: "line",
+              source: "suburbs",
+              paint: {
+                "line-color": "#047857",
+                "line-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.12],
+                "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.8],
+              },
+            });
+
+            let hoveredSuburb: string | null = null;
+            map.on("mousemove", "suburb-fill", (event: MapboxFeature) => {
+              const id = event.features?.[0]?.id;
+              if (id == null) return;
+              if (hoveredSuburb != null && hoveredSuburb !== id) {
+                map.setFeatureState({ source: "suburbs", id: hoveredSuburb }, { hover: false });
+              }
+              hoveredSuburb = id;
+              map.setFeatureState({ source: "suburbs", id }, { hover: true });
+              map.getCanvas().style.cursor = "pointer";
+            });
+            map.on("mouseleave", "suburb-fill", () => {
+              if (hoveredSuburb != null) map.setFeatureState({ source: "suburbs", id: hoveredSuburb }, { hover: false });
+              hoveredSuburb = null;
+              map.getCanvas().style.cursor = "";
+            });
+            map.on("click", "suburb-fill", (event: MapboxFeature) => {
+              const name = event.features?.[0]?.properties?.areaName;
+              if (name) onSelectSuburbRef.current?.(String(name));
+            });
+          }
+
           map.addSource("places", { type: "geojson", data: toFeatureCollection([]), cluster: true, clusterRadius: 50, clusterMaxZoom: 14 });
 
           map.addLayer({
