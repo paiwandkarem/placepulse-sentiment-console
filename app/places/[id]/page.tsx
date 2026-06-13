@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, Star } from "lucide-react";
+import { ArrowLeft, MapPin, Star } from "lucide-react";
 import { getPlaceProfile } from "@/lib/services/placesService";
+import { Pagination } from "@/components/places/Pagination";
 import { Card } from "@/components/ui/Card";
 import { SENTIMENT_TOKENS } from "@/lib/ui/sentiment";
 import type { ReviewSentiment } from "@/lib/types";
@@ -167,15 +168,12 @@ export default async function PlacePage({ params, searchParams }: PageProps) {
               </ul>
             )}
 
-            {reviewPages > 1 && (
-              <nav className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
-                <PageLink href={reviewHref(reviewPage - 1)} disabled={reviewPage <= 1} direction="prev" />
-                <span className="text-sm text-gray-500">
-                  Page {reviewPage} of {reviewPages.toLocaleString()}
-                </span>
-                <PageLink href={reviewHref(reviewPage + 1)} disabled={reviewPage >= reviewPages} direction="next" />
-              </nav>
-            )}
+            <Pagination
+              page={reviewPage}
+              totalPages={reviewPages}
+              hrefFor={reviewHref}
+              className="mt-5 border-t border-gray-100 pt-4"
+            />
           </Card>
         </div>
       </div>
@@ -195,16 +193,3 @@ function Stat({ label, value, icon }: { label: string; value: string; icon?: boo
   );
 }
 
-function PageLink({ href, disabled, direction }: { href: string; disabled: boolean; direction: "prev" | "next" }) {
-  const label = direction === "prev" ? "Previous" : "Next";
-  const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
-  const content = (
-    <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700">
-      {direction === "prev" && <Icon className="h-4 w-4" />}
-      {label}
-      {direction === "next" && <Icon className="h-4 w-4" />}
-    </span>
-  );
-  if (disabled) return <span className="pointer-events-none opacity-40">{content}</span>;
-  return <Link href={href}>{content}</Link>;
-}
