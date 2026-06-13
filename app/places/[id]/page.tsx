@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { getPlaceProfile } from "@/lib/services/placesService";
+import { Suspense } from "react";
+import { getPlaceCategories, getPlaceProfile } from "@/lib/services/placesService";
+import { listAvailableFilters } from "@/lib/services/sentimentService";
+import { PlacesExplorer } from "@/components/places/PlacesExplorer";
+import { Modal } from "@/components/places/Modal";
 import { PlaceProfile } from "@/components/places/PlaceProfile";
+import { Spinner } from "@/components/ui/Spinner";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -21,21 +24,39 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: profile ? `${profile.detail.name} | PlacePulse` : "Place | PlacePulse" };
 }
 
-// The canonical place page: a direct visit, refresh, share, or assistant deep-link lands here as a
-// full page. Navigating from the explorer intercepts this route and shows the same PlaceProfile in a
-// slide-over instead (see app/places/@modal/(.)[id]).
+// A place is only ever a slide-over over the map, never a standalone page. Navigating from the
+// explorer intercepts this route (see app/places/@modal/(.)[id]); a direct visit, refresh or
+// deep-link lands here, where we render the same explorer behind the same slide-over so the
+// experience is identical. The modal closes back to the explorer (preserving any active filters)
+// rather than popping history, since on a direct load there is nothing to pop.
 export default async function PlacePage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const sp = await searchParams;
   const reviewPage = Math.max(1, Number(first(sp.rpage) ?? "1") || 1);
 
+  const [categories, filters] = await Promise.all([getPlaceCategories(), listAvailableFilters()]);
+
+  const closeParams = new URLSearchParams();
+  for (const key of ["q", "suburb", "category"] as const) {
+    const value = first(sp[key]);
+    if (value) closeParams.set(key, value);
+  }
+  const closeHref = closeParams.toString() ? `/places?${closeParams.toString()}` : "/places";
+
   return (
-    <div className="px-4 pb-16 pt-6 md:px-8">
-      <Link href="/places" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900">
-        <ArrowLeft className="h-4 w-4" />
-        All places
-      </Link>
-      <PlaceProfile placeId={decodeURIComponent(id)} reviewPage={reviewPage} />
-    </div>
+    <>
+      <PlacesExplorer categories={categories} areaNames={filters.areaNames} />
+      <Modal closeHref={closeHref}>
+        <Suspense
+          fallback={
+            <div className="flex h-64 items-center justify-center">
+              <Spinner />
+            </div>
+          }
+        >
+          <PlaceProfile placeId={decodeURIComponent(id)} reviewPage={reviewPage} />
+        </Suspense>
+      </Modal>
+    </>
   );
 }

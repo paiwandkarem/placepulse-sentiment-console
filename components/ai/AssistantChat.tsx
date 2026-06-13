@@ -8,7 +8,7 @@ import { track } from "@vercel/analytics";
 import { ArrowUp, Square } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
-import { ToolCallView } from "./ToolCallView";
+import { ToolResult } from "./ToolResult";
 
 // The shared assistant chat: message list, streaming tool timeline, and the composer. It is mounted
 // in two places (the dashboard dock and the full-screen page), so it owns the conversation but not
@@ -117,7 +117,7 @@ export function AssistantChat({ className }: { className?: string }) {
                       {part.text}
                     </Streamdown>
                   ) : (
-                    <ToolCallView key={index} part={part} />
+                    <ToolResult key={index} part={part} />
                   ),
                 )}
               </div>

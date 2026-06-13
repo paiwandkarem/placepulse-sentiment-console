@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ExternalLink, FileText, Loader2, Trash2, TriangleAlert } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { cn } from "@/lib/ui/sentiment";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import type { BriefJob } from "@/lib/briefs/repository";
 import type { BriefContent } from "@/lib/briefs/schema";
 
@@ -95,36 +96,27 @@ export function BriefsView({
         onSubmit={generate}
         className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end"
       >
-        <label className="flex-1">
+        <div className="flex-1">
           <span className="mb-1 block text-xs font-semibold text-gray-600">Suburb</span>
-          <input
-            list="brief-suburbs"
+          <SearchableDropdown
             value={area}
-            onChange={(event) => setArea(event.target.value)}
+            options={areaNames}
+            onSelect={setArea}
             placeholder="Search a Queensland suburb"
-            className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-gray-400"
+            triggerClassName="h-10 w-full"
           />
-          <datalist id="brief-suburbs">
-            {areaNames.slice(0, 2000).map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
-        </label>
+        </div>
 
-        <label className="sm:w-56">
+        <div className="sm:w-56">
           <span className="mb-1 block text-xs font-semibold text-gray-600">Category</span>
-          <select
+          <SearchableDropdown
             value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-400"
-          >
-            {[OVERALL, ...categories].map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={[OVERALL, ...categories]}
+            onSelect={setCategory}
+            placeholder="Search categories"
+            triggerClassName="h-10 w-full"
+          />
+        </div>
 
         <button
           type="submit"

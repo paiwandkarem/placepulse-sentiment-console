@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
@@ -15,10 +15,18 @@ import { cn } from "@/lib/ui/sentiment";
 // aria-modal or trap focus (that would wrongly mark the map inert and block point-to-point browsing).
 // It does the parts that matter for keyboard and screen-reader users: move focus into the panel on
 // open, and restore it to the triggering element on close.
-export function Modal({ children }: { children: React.ReactNode }) {
+export function Modal({ children, closeHref }: { children: React.ReactNode; closeHref?: string }) {
   const router = useRouter();
   const [shown, setShown] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  // When intercepted (navigated from the explorer), close with a history pop so the @modal slot is
+  // dismissed. When this is the page itself (a direct load or refresh of /places/[id]), there is no
+  // entry to pop, so navigate to the explorer instead. Stable so the keydown effect runs once.
+  const close = useCallback(() => {
+    if (closeHref) router.push(closeHref);
+    else router.back();
+  }, [closeHref, router]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -27,7 +35,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
       closeRef.current?.focus();
     });
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") router.back();
+      if (event.key === "Escape") close();
     }
     document.addEventListener("keydown", onKey);
     return () => {
@@ -36,7 +44,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
       // Return focus to wherever it was (the map point or directory link that opened the panel).
       previouslyFocused?.focus?.();
     };
-  }, [router]);
+  }, [close]);
 
   return (
     <aside
@@ -52,7 +60,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
         <button
           ref={closeRef}
           type="button"
-          onClick={() => router.back()}
+          onClick={close}
           aria-label="Close place"
           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
         >
