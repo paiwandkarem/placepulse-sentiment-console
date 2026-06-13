@@ -1,0 +1,68 @@
+import { after } from "next/server";
+import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
+import { model } from "@/lib/ai/model";
+import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
+import { assistantTools } from "@/lib/assistant/tools";
+import { saveChatSession } from "@/lib/assistant/sessions";
+
+// The assistant endpoint. It runs the conversation through the model with the grounded read tools
+// and streams the answer back in the UI-message protocol that useChat consumes. A route handler is
+// the right primitive here because the response is an open token stream, not a single value: it
+// exposes the Web Response directly and toUIMessageStreamResponse emits exactly that protocol.
+//
+// The model reaches Neon only through the typed, zod-validated tools in lib/assistant/tools.ts, so
+// it can only surface figures that already exist in the database and cannot run arbitrary SQL.
+// stepCountIs bounds the tool loop: the model may call a tool, read the result and call another,
+// then answer, but cannot loop without end.
+
+// Headroom for a multi-step tool loop on Sonnet. Runs on Fluid Compute (Node), which keeps the
+// instance warm between turns so an interactive assistant does not pay a cold start each message.
+export const maxDuration = 60;
+
+type AssistantRequest = {
+  id?: string;
+  messages?: UIMessage[];
+  // The dashboard filter state, sent once the copilot is docked (A6). Stored with the session.
+  filters?: unknown;
+};
+
+export async function POST(request: Request): Promise<Response> {
+  let body: AssistantRequest;
+  try {
+    body = (await request.json()) as AssistantRequest;
+  } catch {
+    return new Response("Request body must be valid JSON.", { status: 400 });
+  }
+
+  const messages = body.messages;
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return new Response("Request body must include a non-empty messages array.", { status: 400 });
+  }
+
+  const sessionId = body.id ?? crypto.randomUUID();
+  const modelMessages = await convertToModelMessages(messages);
+
+  const result = streamText({
+    model: model("assistant"),
+    system: ASSISTANT_SYSTEM_PROMPT,
+    messages: modelMessages,
+    tools: assistantTools,
+    stopWhen: stepCountIs(8),
+  });
+
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    onFinish: ({ messages: finalMessages }) => {
+      // Persist after the stream is delivered, so the database write never sits on the response
+      // path. after() lets the work finish on Fluid Compute once the response has been sent.
+      after(async () => {
+        try {
+          await saveChatSession({ id: sessionId, messages: finalMessages, filters: body.filters });
+        } catch (error) {
+          console.error("Failed to persist chat session", sessionId, error);
+        }
+      });
+    },
+    onError: (error) => (error instanceof Error ? error.message : "The assistant hit an error."),
+  });
+}
