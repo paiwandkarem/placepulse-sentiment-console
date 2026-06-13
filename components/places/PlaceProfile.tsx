@@ -34,11 +34,11 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
   }
 
   return (
-    <>
-      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="@container">
+      <div className="mb-6 flex flex-col gap-3 @2xl:flex-row @2xl:items-end @2xl:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-extrabold text-gray-900 lg:text-3xl">{detail.name || "Unnamed place"}</h1>
+            <h1 className="text-2xl font-extrabold text-gray-900 @2xl:text-3xl">{detail.name || "Unnamed place"}</h1>
             {detail.permanentlyClosed && (
               <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-rose-700">
                 Closed
@@ -55,7 +55,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
             </p>
           )}
         </div>
-        <div className="flex shrink-0 gap-3">
+        <div className="flex flex-wrap gap-2">
           <Stat label="Rating" value={detail.rating ? `${detail.rating.toFixed(1)} / 5` : "—"} icon />
           <Stat label="Reviews" value={detail.reviewsCount.toLocaleString()} />
           <Stat label="Themes" value={String(themes.length)} />
@@ -68,8 +68,8 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-1">
+      <div className="grid grid-cols-1 gap-6 @4xl:grid-cols-3">
+        <div className="space-y-6 @4xl:col-span-1">
           <Card title="Theme breakdown" subtitle="What reviewers talk about, ranked by the place's own data.">
             {themes.length === 0 ? (
               <p className="text-sm text-gray-500">No themes available for this place.</p>
@@ -110,7 +110,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
           )}
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="@4xl:col-span-2">
           <Card
             title="Reviews"
             subtitle={`${reviews.total.toLocaleString()} scored review${reviews.total === 1 ? "" : "s"} held for this place.`}
@@ -149,7 +149,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
           </Card>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
