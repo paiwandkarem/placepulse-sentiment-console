@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
-import { MapPin, Star } from "lucide-react";
+import { ExternalLink, Globe, MapPin, Star } from "lucide-react";
 import { getPlaceProfile } from "@/lib/services/placesService";
 import { Pagination } from "@/components/places/Pagination";
 import { Card } from "@/components/ui/Card";
+import { PlaceImage } from "@/components/ui/PlaceImage";
+import { Avatar } from "@/components/ui/Avatar";
+import { placeStaticMapUrl } from "@/lib/map/staticMap";
 import { SENTIMENT_TOKENS } from "@/lib/ui/sentiment";
 import type { ReviewSentiment } from "@/lib/types";
 
@@ -27,6 +30,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
 
   const reviewPages = Math.max(1, Math.ceil(reviews.total / reviews.pageSize));
   const maxMentions = Math.max(1, ...words.map((word) => word.mentions));
+  const mapUrl = placeStaticMapUrl(detail.lat, detail.lon, { width: 480, height: 220 });
 
   function reviewHref(page: number): string {
     const base = `/places/${encodeURIComponent(detail.placeId)}`;
@@ -35,25 +39,56 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
 
   return (
     <div className="@container">
-      <div className="mb-6 flex flex-col gap-3 @2xl:flex-row @2xl:items-end @2xl:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-extrabold text-gray-900 @2xl:text-3xl">{detail.name || "Unnamed place"}</h1>
-            {detail.permanentlyClosed && (
-              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-rose-700">
-                Closed
-              </span>
+      <div className="mb-6 flex flex-col gap-4 @2xl:flex-row @2xl:items-end @2xl:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="relative aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-xl border border-gray-200 @xl:w-36">
+            <PlaceImage src={detail.mainImage} alt={detail.name || "Place photo"} sizes="(min-width: 36rem) 144px, 96px" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-extrabold text-gray-900 @2xl:text-3xl">{detail.name || "Unnamed place"}</h1>
+              {detail.permanentlyClosed && (
+                <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-rose-700">
+                  Closed
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm font-semibold text-gray-600">
+              {[detail.category, detail.suburb].filter(Boolean).join(" · ")}
+            </p>
+            {detail.address && (
+              <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-gray-500">
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {detail.address}
+              </p>
+            )}
+            {(detail.website || detail.googleMapsUrl) && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {detail.website && (
+                  <a
+                    href={detail.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+                    Website
+                  </a>
+                )}
+                {detail.googleMapsUrl && (
+                  <a
+                    href={detail.googleMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                    Google Maps
+                  </a>
+                )}
+              </div>
             )}
           </div>
-          <p className="mt-1 text-sm font-semibold text-gray-600">
-            {[detail.category, detail.suburb].filter(Boolean).join(" · ")}
-          </p>
-          {detail.address && (
-            <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-gray-500">
-              <MapPin className="h-3.5 w-3.5" />
-              {detail.address}
-            </p>
-          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Stat label="Rating" value={detail.rating ? `${detail.rating.toFixed(1)} / 5` : "—"} icon />
@@ -70,6 +105,25 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
 
       <div className="grid grid-cols-1 gap-6 @4xl:grid-cols-3">
         <div className="space-y-6 @4xl:col-span-1">
+          {(mapUrl || detail.photos.length > 0) && (
+            <Card title="Location" subtitle={detail.address || undefined}>
+              {mapUrl && (
+                <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg border border-gray-200">
+                  <PlaceImage src={mapUrl} alt={`Map showing ${detail.name}`} sizes="(min-width: 64rem) 320px, 100vw" />
+                </div>
+              )}
+              {detail.photos.length > 0 && (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {detail.photos.slice(0, 6).map((photo, index) => (
+                    <div key={photo} className="relative aspect-square overflow-hidden rounded-lg border border-gray-200">
+                      <PlaceImage src={photo} alt={`${detail.name} photo ${index + 1}`} sizes="120px" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+
           <Card title="Theme breakdown" subtitle="What reviewers talk about, ranked by the place's own data.">
             {themes.length === 0 ? (
               <p className="text-sm text-gray-500">No themes available for this place.</p>
@@ -123,15 +177,21 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                   const token = SENTIMENT_TOKENS[asSentiment(review.sentiment)];
                   return (
                     <li key={index} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                      <div className="mb-1.5 flex items-center gap-3 text-xs text-gray-500">
-                        <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          {review.rating ? review.rating.toFixed(1) : "—"}
-                        </span>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${token.soft}`}>
-                          {token.label}
-                        </span>
-                        {review.date && <span>{review.date}</span>}
+                      <div className="mb-1.5 flex items-center gap-2.5">
+                        <Avatar src={review.reviewerPhoto} name={review.reviewerName} className="h-7 w-7" />
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-gray-500">
+                          {review.reviewerName && (
+                            <span className="font-semibold text-gray-700">{review.reviewerName}</span>
+                          )}
+                          <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                            {review.rating ? review.rating.toFixed(1) : "—"}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${token.soft}`}>
+                            {token.label}
+                          </span>
+                          {review.date && <span>{review.date}</span>}
+                        </div>
                       </div>
                       <p className="text-sm leading-relaxed text-gray-700">{review.text}</p>
                     </li>
@@ -157,7 +217,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon?: boo
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-center shadow-sm">
       <div className="inline-flex items-center gap-1 text-lg font-bold text-gray-900">
-        {icon && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
+        {icon && <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />}
         {value}
       </div>
       <div className="text-[11px] uppercase tracking-wide text-gray-500">{label}</div>

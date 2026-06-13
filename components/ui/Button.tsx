@@ -7,7 +7,7 @@ export function Button(props: ButtonHTMLAttributes<HTMLButtonElement>) {
 
   return (
     <button
-      className={`rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${className}`}
+      className={`rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 ${className}`}
       {...rest}
     />
   );

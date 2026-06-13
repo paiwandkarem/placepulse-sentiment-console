@@ -8,7 +8,7 @@ import { track } from "@vercel/analytics";
 import { ArrowUp, Square } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
-import { ToolCallView } from "./ToolCallView";
+import { ToolResult } from "./ToolResult";
 
 // The shared assistant chat: message list, streaming tool timeline, and the composer. It is mounted
 // in two places (the dashboard dock and the full-screen page), so it owns the conversation but not
@@ -70,7 +70,14 @@ export function AssistantChat({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        aria-atomic="false"
+        className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
+      >
         {messages.length === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
@@ -95,7 +102,7 @@ export function AssistantChat({ className }: { className?: string }) {
             message.role === "user" ? (
               // User turns are short prompts: a right-aligned bubble, plain text.
               <div key={message.id} className="flex justify-end">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-950 px-3.5 py-2 text-sm leading-relaxed text-white">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-xl bg-gray-900 px-3.5 py-2 text-sm leading-relaxed text-white">
                   {message.parts.map((part) => (part.type === "text" ? part.text : "")).join("")}
                 </div>
               </div>
@@ -110,7 +117,7 @@ export function AssistantChat({ className }: { className?: string }) {
                       {part.text}
                     </Streamdown>
                   ) : (
-                    <ToolCallView key={index} part={part} />
+                    <ToolResult key={index} part={part} />
                   ),
                 )}
               </div>
@@ -139,6 +146,7 @@ export function AssistantChat({ className }: { className?: string }) {
               }
             }}
             rows={1}
+            aria-label="Ask the assistant a question"
             placeholder="Ask about a suburb, theme, or place"
             className="max-h-32 flex-1 resize-none bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
           />
@@ -149,16 +157,16 @@ export function AssistantChat({ className }: { className?: string }) {
               aria-label="Stop generating"
               className="rounded-lg bg-gray-200 p-1.5 text-gray-700 hover:bg-gray-300"
             >
-              <Square className="h-4 w-4" />
+              <Square className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : (
             <button
               type="submit"
               disabled={!input.trim()}
               aria-label="Send message"
-              className="rounded-lg bg-zinc-950 p-1.5 text-white disabled:opacity-40"
+              className="rounded-lg bg-gray-900 p-1.5 text-white transition-colors hover:bg-gray-800 disabled:opacity-40"
             >
-              <ArrowUp className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { HiStar } from "react-icons/hi";
+import { Star } from "lucide-react";
 import type { SentimentRecord } from "@/lib/types";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -53,20 +53,28 @@ export function StarRatingDistribution({ record }: { record: SentimentRecord }) 
 
   const series = useMemo(() => [{ name: "Share", data: buckets.map((b) => Number(b.pct.toFixed(2))) }], [buckets]);
 
+  const hasData = buckets.some((b) => b.pct > 0);
+
   return (
     <div className="flex h-[340px] flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm font-sans">
       <div className="mb-2 flex items-center justify-between px-1">
         <div className="inline-flex items-baseline gap-1.5">
-          <HiStar className="h-5 w-5 self-center text-amber-400" />
+          <Star className="h-5 w-5 self-center fill-amber-400 text-amber-400" aria-hidden="true" />
           <span className="text-2xl font-extrabold tracking-tight tabular-nums text-gray-900">
             {record.avgRating.toFixed(2)}
           </span>
           <span className="text-xs text-gray-500">avg rating</span>
         </div>
       </div>
-      <div className="min-h-0 flex-1" role="img" aria-label="Bar chart of the share of reviews by star rating.">
-        <ReactApexChart options={options} series={series} type="bar" height="100%" />
-      </div>
+      {hasData ? (
+        <div className="min-h-0 flex-1" role="img" aria-label="Bar chart of the share of reviews by star rating.">
+          <ReactApexChart options={options} series={series} type="bar" height="100%" />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
+          No rating distribution for this selection.
+        </div>
+      )}
     </div>
   );
 }

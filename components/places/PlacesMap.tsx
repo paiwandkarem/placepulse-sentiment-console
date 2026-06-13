@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { Spinner } from "@/components/ui/Spinner";
+import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
+import { MapLegend } from "@/components/ui/MapLegend";
+import { MAP_COLORS, MAP_STYLE, escapeHtml, hasMapToken, popupCard } from "@/lib/map/config";
 import type { PlacePoint } from "@/lib/repositories/poiRepository";
 
 // The clustered point map behind the Places explorer. mapbox-gl is imported inside the effect (it
 // needs `window`) and this whole component is code-split, so the library stays out of the directory
 // shell's first load. The map is created once; changing the points (a new filter) updates the source
 // in place rather than re-creating the map, so the view never flickers. Hovering a point shows a
-// quick insight card; clicking it opens the place.
+// quick insight card; clicking it opens the place. It shares its basemap, controls, hover card,
+// status overlay and legend with the dashboard map (see lib/map/config.ts).
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MapboxFeature = any;
@@ -19,26 +21,14 @@ type MapboxFeature = any;
 // visible when zoomed out, faded when zoomed in, and clicking one drills into that suburb.
 const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL;
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => {
-    const map: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-    return map[char] ?? char;
-  });
-}
-
-function insightCard(properties: Record<string, unknown>): string {
-  const name = escapeHtml(String(properties.name ?? "Unnamed place"));
-  const category = escapeHtml(String(properties.category ?? ""));
+// The hover card for a place, built from the shared popup chrome.
+function placeInsight(properties: Record<string, unknown>): string {
+  const category = properties.category ? escapeHtml(String(properties.category)) : undefined;
   const rating = properties.rating ? Number(properties.rating).toFixed(1) : "—";
   const reviews = Number(properties.reviewsCount ?? 0).toLocaleString();
-  return `<div style="font-family:'Plus Jakarta Sans',sans-serif;min-width:150px;max-width:210px;padding:2px 1px">
-    <div style="font-weight:600;font-size:12px;color:#111827;line-height:1.3">${name}</div>
-    ${category ? `<div style="font-size:11px;color:#6b7280;margin-top:2px">${category}</div>` : ""}
-    <div style="font-size:11px;color:#374151;margin-top:5px">
-      <span style="color:#f59e0b">&#9733;</span> ${rating} &middot; ${reviews} reviews
-    </div>
-    <div style="font-size:10px;color:#9ca3af;margin-top:4px">Click to open</div>
-  </div>`;
+  const body = `<span style="color:#f59e0b">&#9733;</span> ${rating} &middot; ${reviews} reviews
+    <div style="font-size:10px;color:#9ca3af;margin-top:4px">Click to open</div>`;
+  return popupCard({ title: String(properties.name ?? "Unnamed place"), subtitle: category, body });
 }
 
 function toFeatureCollection(points: PlacePoint[]) {
@@ -58,19 +48,34 @@ function toFeatureCollection(points: PlacePoint[]) {
   };
 }
 
-export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; onSelectSuburb?: (suburb: string) => void }) {
-  const router = useRouter();
-  // Kept in a ref so the map (created once) always calls the latest handler without re-creating.
+export function PlacesMap({
+  points,
+  fitKey,
+  onSelectSuburb,
+  onSelectPlace,
+}: {
+  points: PlacePoint[];
+  fitKey: string;
+  onSelectSuburb?: (suburb: string) => void;
+  onSelectPlace?: (placeId: string) => void;
+}) {
+  // Kept in refs so the map (created once) always calls the latest handlers without re-creating.
   const onSelectSuburbRef = useRef(onSelectSuburb);
+  const onSelectPlaceRef = useRef(onSelectPlace);
   useEffect(() => {
     onSelectSuburbRef.current = onSelectSuburb;
-  }, [onSelectSuburb]);
+    onSelectPlaceRef.current = onSelectPlace;
+  }, [onSelectSuburb, onSelectPlace]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
-  const hasToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-  const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(hasToken ? "loading" : "no-token");
+  const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(
+    hasMapToken() ? "loading" : "no-token",
+  );
+  // The filter signature the camera was last framed to, so a plain points refresh (e.g. opening a
+  // place) updates the dots without yanking the view back.
+  const lastFitKeyRef = useRef<string | null>(null);
 
   // Create the map once.
   useEffect(() => {
@@ -87,7 +92,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const map: any = new mapboxgl.Map({
           container: containerRef.current,
-          style: "mapbox://styles/mapbox/light-v11",
+          style: MAP_STYLE,
           attributionControl: false,
           center: [146.8, -20.5],
           zoom: 4.2,
@@ -104,7 +109,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
               type: "fill",
               source: "suburbs",
               paint: {
-                "fill-color": "#10b981",
+                "fill-color": MAP_COLORS.fill,
                 // Fades out as you zoom in (boundaries are context, points take over).
                 "fill-opacity": [
                   "interpolate",
@@ -124,13 +129,14 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
               type: "line",
               source: "suburbs",
               paint: {
-                "line-color": "#047857",
+                "line-color": MAP_COLORS.line,
                 "line-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.12],
                 "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.8],
               },
             });
 
             let hoveredSuburb: string | null = null;
+            const suburbPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
             map.on("mousemove", "suburb-fill", (event: MapboxFeature) => {
               const id = event.features?.[0]?.id;
               if (id == null) return;
@@ -140,11 +146,13 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
               hoveredSuburb = id;
               map.setFeatureState({ source: "suburbs", id }, { hover: true });
               map.getCanvas().style.cursor = "pointer";
+              suburbPopup.setLngLat(event.lngLat).setHTML(popupCard({ title: String(id) })).addTo(map);
             });
             map.on("mouseleave", "suburb-fill", () => {
               if (hoveredSuburb != null) map.setFeatureState({ source: "suburbs", id: hoveredSuburb }, { hover: false });
               hoveredSuburb = null;
               map.getCanvas().style.cursor = "";
+              suburbPopup.remove();
             });
             map.on("click", "suburb-fill", (event: MapboxFeature) => {
               const name = event.features?.[0]?.properties?.areaName;
@@ -160,7 +168,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
             source: "places",
             filter: ["has", "point_count"],
             paint: {
-              "circle-color": "#10b981",
+              "circle-color": MAP_COLORS.cluster,
               "circle-opacity": 0.85,
               "circle-radius": ["step", ["get", "point_count"], 15, 25, 20, 100, 28],
             },
@@ -178,7 +186,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
             type: "circle",
             source: "places",
             filter: ["!", ["has", "point_count"]],
-            paint: { "circle-color": "#047857", "circle-radius": 6, "circle-stroke-width": 1.5, "circle-stroke-color": "#ffffff" },
+            paint: { "circle-color": MAP_COLORS.point, "circle-radius": 6, "circle-stroke-width": 1.5, "circle-stroke-color": "#ffffff" },
           });
 
           const hoverPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
@@ -186,7 +194,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
             const feature = event.features?.[0];
             if (!feature) return;
             map.getCanvas().style.cursor = "pointer";
-            hoverPopup.setLngLat(feature.geometry.coordinates.slice()).setHTML(insightCard(feature.properties)).addTo(map);
+            hoverPopup.setLngLat(feature.geometry.coordinates.slice()).setHTML(placeInsight(feature.properties)).addTo(map);
           });
           map.on("mouseleave", "point", () => {
             map.getCanvas().style.cursor = "";
@@ -194,7 +202,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
           });
           map.on("click", "point", (event: MapboxFeature) => {
             const placeId = event.features?.[0]?.properties?.placeId;
-            if (placeId) router.push(`/places/${encodeURIComponent(String(placeId))}`);
+            if (placeId) onSelectPlaceRef.current?.(String(placeId));
           });
 
           map.on("click", "clusters", (event: MapboxFeature) => {
@@ -226,7 +234,8 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
       mapRef.current?.remove?.();
       mapRef.current = null;
     };
-  }, [router]);
+    // Create the map exactly once; all dynamic inputs are read through refs or the points effect.
+  }, []);
 
   // Update the source (and frame the results) whenever the points change.
   useEffect(() => {
@@ -235,7 +244,10 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
     const source = map.getSource("places");
     if (!source) return;
     source.setData(toFeatureCollection(points));
-    if (points.length > 0) {
+    // Reframe only when the filter (fitKey) changed since the last frame, not on every points
+    // update, so opening a place or a background refresh never moves the camera.
+    if (points.length > 0 && fitKey !== lastFitKeyRef.current) {
+      lastFitKeyRef.current = fitKey;
       let minLon = Infinity;
       let minLat = Infinity;
       let maxLon = -Infinity;
@@ -254,17 +266,23 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
         { padding: 64, maxZoom: 13, duration: 400 },
       );
     }
+    // Driven by points changes; fitKey is read through the closure (current when points arrive for a
+    // new filter). Listing fitKey here would fire before the new points load and frame the old set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, ready]);
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      {status !== "ready" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-sm text-gray-500">
-          {status === "loading" && <Spinner />}
-          {status === "no-token" && "Map token not configured."}
-          {status === "error" && "Could not load the map."}
-        </div>
+      {status !== "ready" && <MapStatusOverlay status={status} />}
+      {status === "ready" && (
+        <MapLegend
+          className="absolute bottom-6 left-4"
+          items={[
+            { color: MAP_COLORS.cluster, label: "Cluster" },
+            { color: MAP_COLORS.point, label: "Place" },
+          ]}
+        />
       )}
     </div>
   );

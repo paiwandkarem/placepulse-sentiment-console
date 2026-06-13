@@ -2,15 +2,15 @@
 
 import { useMemo, useState } from "react";
 import {
-  HiArrowSmDown,
-  HiArrowSmUp,
-  HiOutlineChatAlt2,
-  HiOutlineCheck,
-  HiOutlineChevronLeft,
-  HiOutlineChevronRight,
-  HiOutlineExclamationCircle,
-  HiOutlineSwitchHorizontal,
-} from "react-icons/hi";
+  ArrowDown,
+  ArrowLeftRight,
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  MessageSquare,
+} from "lucide-react";
 import { groupDrivers } from "@/lib/sentiment/themeBuckets";
 import type { DriverBucket, EnrichedTheme, ReviewSentiment } from "@/lib/types";
 
@@ -30,7 +30,7 @@ const LIST_MIN_HEIGHT = 456;
 const MIN_DELTA_PP = 0.5;
 
 type SideMeta = {
-  Icon: typeof HiOutlineCheck;
+  Icon: typeof Check;
   label: string;
   iconColour: string;
   iconBg: string;
@@ -45,7 +45,7 @@ type SideMeta = {
 
 const SIDE_META: Record<DriverBucket, SideMeta> = {
   working: {
-    Icon: HiOutlineCheck,
+    Icon: Check,
     label: "What's working",
     iconColour: "text-emerald-600",
     iconBg: "bg-emerald-100",
@@ -59,7 +59,7 @@ const SIDE_META: Record<DriverBucket, SideMeta> = {
     emptyText: "No themes were strongly praised in this window.",
   },
   not_working: {
-    Icon: HiOutlineExclamationCircle,
+    Icon: CircleAlert,
     label: "What's not working",
     iconColour: "text-rose-600",
     iconBg: "bg-rose-100",
@@ -73,7 +73,7 @@ const SIDE_META: Record<DriverBucket, SideMeta> = {
     emptyText: "No themes were strongly criticised in this window.",
   },
   mixed: {
-    Icon: HiOutlineSwitchHorizontal,
+    Icon: ArrowLeftRight,
     label: "Mixed reception",
     iconColour: "text-amber-600",
     iconBg: "bg-amber-100",
@@ -124,7 +124,7 @@ function YoyDelta({
   if (!resolved) return null;
   const { tone, abs, up } = resolved;
   const flat = tone === "flat";
-  const Icon = flat ? null : up ? HiArrowSmUp : HiArrowSmDown;
+  const Icon = flat ? null : up ? ArrowUp : ArrowDown;
   const sizeCls = size === "xs" ? "text-[10px]" : "text-[11px]";
   const word = flat ? "" : tone === "good" ? "better" : "worse";
   const text = flat
@@ -283,14 +283,14 @@ function MixedRow({ t, rank }: { t: EnrichedTheme; rank: number }) {
         <div className="inline-flex flex-wrap items-start justify-end gap-4">
           <div className="flex flex-col items-end gap-1">
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold tabular-nums text-emerald-700">
-              <HiOutlineCheck className="h-3.5 w-3.5" />
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
               {t.positivePct.toFixed(2)}%
             </span>
             <YoyDelta delta={t.positivePctDelta} direction="good_up" />
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold tabular-nums text-rose-700">
-              <HiOutlineExclamationCircle className="h-3.5 w-3.5" />
+              <CircleAlert className="h-3.5 w-3.5" aria-hidden="true" />
               {t.negativePct.toFixed(2)}%
             </span>
             <YoyDelta delta={t.negativePctDelta} direction="bad_up" />
@@ -344,7 +344,7 @@ export function SentimentDrivers({
 
   if (!drivers.length) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex h-32 items-center justify-center text-sm text-gray-500">
           No driver data for the selected window.
         </div>
@@ -353,7 +353,7 @@ export function SentimentDrivers({
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <TabPill side="working" count={buckets.working.length} active={activeTab === "working"} onClick={() => selectTab("working")} />
         <TabPill
@@ -397,7 +397,7 @@ export function SentimentDrivers({
                 disabled={safePage === 0}
                 className="rounded p-1 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <HiOutlineChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               </button>
               <span className="px-1 tabular-nums">
                 {safePage + 1} / {totalPages}
@@ -409,7 +409,7 @@ export function SentimentDrivers({
                 disabled={safePage >= totalPages - 1}
                 className="rounded p-1 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <HiOutlineChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </span>
           </div>
@@ -421,7 +421,7 @@ export function SentimentDrivers({
             disabled={sorted.length === 0}
             className={`ml-auto inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${meta.buttonAccent}`}
           >
-            <HiOutlineChatAlt2 className="h-4 w-4" />
+            <MessageSquare className="h-4 w-4" aria-hidden="true" />
             {meta.buttonLabel}
           </button>
         ) : null}

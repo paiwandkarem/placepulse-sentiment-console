@@ -1,7 +1,6 @@
 "use client";
 
-import { FaMapMarkedAlt } from "react-icons/fa";
-import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { ChevronLeft, ChevronRight, Map } from "lucide-react";
 import { useMapDrawer } from "./MapDrawerContext";
 
 // Persistent vertical handle on the right edge that opens and closes the map panel (a second
@@ -22,8 +21,12 @@ export function MapEdgeTab() {
         mapOpen ? "right-0 sm:right-[420px]" : "right-0"
       }`}
     >
-      <FaMapMarkedAlt size={16} className="shrink-0" />
-      {mapOpen ? <HiChevronRight size={18} /> : <HiChevronLeft size={18} />}
+      <Map className="h-4 w-4 shrink-0" aria-hidden="true" />
+      {mapOpen ? (
+        <ChevronRight className="h-[18px] w-[18px]" aria-hidden="true" />
+      ) : (
+        <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+      )}
     </button>
   );
 }

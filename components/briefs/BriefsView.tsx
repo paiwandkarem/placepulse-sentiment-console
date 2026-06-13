@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ExternalLink, FileText, Loader2, Trash2, TriangleAlert } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { cn } from "@/lib/ui/sentiment";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import type { BriefJob } from "@/lib/briefs/repository";
 import type { BriefContent } from "@/lib/briefs/schema";
 
@@ -95,43 +96,38 @@ export function BriefsView({
         onSubmit={generate}
         className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end"
       >
-        <label className="flex-1">
+        <div className="flex-1">
           <span className="mb-1 block text-xs font-semibold text-gray-600">Suburb</span>
-          <input
-            list="brief-suburbs"
+          <SearchableDropdown
             value={area}
-            onChange={(event) => setArea(event.target.value)}
+            options={areaNames}
+            onSelect={setArea}
             placeholder="Search a Queensland suburb"
-            className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm text-gray-900 outline-none focus:border-gray-400"
+            triggerClassName="h-10 w-full"
           />
-          <datalist id="brief-suburbs">
-            {areaNames.slice(0, 2000).map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
-        </label>
+        </div>
 
-        <label className="sm:w-56">
+        <div className="sm:w-56">
           <span className="mb-1 block text-xs font-semibold text-gray-600">Category</span>
-          <select
+          <SearchableDropdown
             value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-400"
-          >
-            {[OVERALL, ...categories].map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={[OVERALL, ...categories]}
+            onSelect={setCategory}
+            placeholder="Search categories"
+            triggerClassName="h-10 w-full"
+          />
+        </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white disabled:opacity-50"
+          className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <FileText className="h-4 w-4" aria-hidden="true" />
+          )}
           Generate brief
         </button>
       </form>
@@ -170,14 +166,17 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               title="Delete brief"
               className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
       {brief.status === "running" && (
-        <p className="mt-3 text-sm text-gray-500">Drafting the brief and rendering the PDF...</p>
+        <div className="mt-3 flex min-h-[3.5rem] items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Drafting the brief and rendering the PDF...
+        </div>
       )}
       {brief.status === "failed" && (
         <p className="mt-3 text-sm text-rose-600">{brief.error ?? "Generation failed."}</p>
@@ -194,7 +193,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               onClick={() => track("brief_viewed")}
               className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               View PDF
             </a>
           )}
@@ -213,7 +212,7 @@ function StatusPill({ status }: { status: BriefJob["status"] }) {
   const { label, icon: Icon, spin, className } = map[status];
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium", className)}>
-      <Icon className={cn("h-3.5 w-3.5", spin && "animate-spin")} />
+      <Icon className={cn("h-3.5 w-3.5", spin && "animate-spin")} aria-hidden="true" />
       {label}
     </span>
   );
