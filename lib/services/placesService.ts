@@ -39,6 +39,10 @@ async function placeCategories(): Promise<string[]> {
   }
 }
 
+export async function getPlaceCategories(): Promise<string[]> {
+  return placeCategories();
+}
+
 export async function getPlacesDirectory(opts: {
   query?: string;
   suburb?: string;

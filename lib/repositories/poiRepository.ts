@@ -337,7 +337,15 @@ export async function placeWordTerms(placeId: string, limit = 30): Promise<Place
   }));
 }
 
-export type PlacePoint = { placeId: string; name: string; lat: number; lon: number; rating: number };
+export type PlacePoint = {
+  placeId: string;
+  name: string;
+  category: string;
+  lat: number;
+  lon: number;
+  rating: number;
+  reviewsCount: number;
+};
 
 // Map points for the directory's filters: places with coordinates, capped, most reviewed first. The
 // cap keeps the payload to the client bounded; the map clusters them, so a few hundred reads well.
@@ -366,7 +374,7 @@ export async function placePoints(
   params.push(clamp(limit, 1, 1000));
 
   const rows = (await sql.query(
-    `select p.place_id, p.name, p.lat, p.lon, p.rating
+    `select p.place_id, p.name, p.category, p.lat, p.lon, p.rating, p.reviews_count
        from poi_places p
        join poi_place_suburb s on s.place_id = p.place_id
       where ${where.join(" and ")}
@@ -378,9 +386,11 @@ export async function placePoints(
   return rows.map((row) => ({
     placeId: String(row.place_id ?? ""),
     name: String(row.name ?? ""),
+    category: String(row.category ?? ""),
     lat: toNumber(row.lat),
     lon: toNumber(row.lon),
     rating: toNumber(row.rating),
+    reviewsCount: toNumber(row.reviews_count),
   }));
 }
 
