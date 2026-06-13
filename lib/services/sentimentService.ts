@@ -37,7 +37,16 @@ const cachedListFilters = unstable_cache(listFilters, ["sentiment-filter-catalog
 });
 
 export async function listAvailableFilters(): Promise<FilterCatalogue> {
-  return cachedListFilters();
+  try {
+    return await cachedListFilters();
+  } catch (error) {
+    // unstable_cache needs Next's request-scoped incremental cache. Outside a request (a CLI eval or
+    // a script) that is absent, so fall back to the uncached query rather than failing.
+    if (error instanceof Error && error.message.includes("incrementalCache")) {
+      return listFilters();
+    }
+    throw error;
+  }
 }
 
 // The dashboard's opening state when the URL carries no filters. We open on a real,
