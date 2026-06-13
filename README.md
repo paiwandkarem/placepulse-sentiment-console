@@ -1,13 +1,28 @@
 # PlacePulse Sentiment Intelligence Console
 
-PlacePulse is a production-shaped sentiment intelligence console for exploring customer review sentiment across Australian suburbs, business categories and time periods.
+PlacePulse is a production-shaped sentiment intelligence console for exploring customer review sentiment across Queensland suburbs, business categories and time periods.
 
 It was built as a **Vercel Solutions Architect take-home assessment**. The goal was to build and deploy a small but realistic application on Vercel, then present the architecture and trade-offs as if speaking to a customer.
 
 The project intentionally covers both assessment paths:
 
-* **Frontend Cloud** — a dynamic analytics dashboard with server rendering, client-side interactivity, caching, revalidation and Core Web Vitals considerations.
-* **AI Cloud** — a Vercel AI SDK-powered conversational analytics assistant with grounded tool use, generated briefs/reports and lightweight evaluation checks.
+* **Frontend Cloud**: a dynamic analytics dashboard with server rendering, client-side interactivity, caching, revalidation and Core Web Vitals discipline.
+* **AI Cloud**: a Vercel AI SDK assistant with grounded tool use over the live data, with briefs and evaluation checks on the roadmap.
+
+## Current status
+
+This is built commit by commit. What exists today versus what is planned:
+
+| Surface | Status | Notes |
+| --- | --- | --- |
+| Dashboard (`/`) | Built | KPIs, trend, category breakdown, theme drivers, word cloud, distributions, suburb map. |
+| Assistant (docked copilot) | Built | Streaming chat grounded in the data, a tool-call audit timeline, markdown and tables, a maximize toggle. |
+| Assistant (full-screen page) | Planned | Same engine, a dedicated `/assistant` route. |
+| Briefs (`/briefs`) | Planned | Executive PDF briefs generated with the AI SDK and stored on Vercel Blob. |
+| Evals | Planned | Lightweight grounding checks over the assistant. |
+| Places explorer (`/places`) | Planned | Queensland business directory, place detail pages and a point map over the POI dataset. |
+
+The full build plan lives in `docs/ai-cloud-plan.md`, and the architectural reasoning lives in `docs/architecture-decisions.md`.
 
 ## Problem
 
@@ -19,13 +34,10 @@ Local government, tourism, retail and precinct teams need to answer questions li
 * Which business categories are creating the most customer friction?
 * What themes are driving negative sentiment?
 * Which review evidence supports the trend?
-* Can an executive-ready brief be generated without manually reviewing hundreds of comments?
 
-PlacePulse turns suburb-level sentiment data into a fast dashboard, conversational assistant and briefing workflow.
+PlacePulse turns suburb-level sentiment data into a fast dashboard and a grounded conversational assistant, with briefing and place-level exploration on the roadmap.
 
 ## Target users
-
-The product is designed for:
 
 * local government economic development teams
 * destination and tourism organisations
@@ -35,18 +47,28 @@ The product is designed for:
 
 ## Product summary
 
-The application allows users to:
+Today the application allows users to:
 
-* filter sentiment by suburb, category, aggregation type and month
-* view satisfaction, rating, review volume and coverage KPIs
+* filter sentiment by suburb, category, granularity and month
+* view satisfaction, rating, review volume and year-on-year KPIs
 * inspect sentiment trends over time
-* compare positive, negative and neutral sentiment
-* review top themes and word-cloud terms
-* inspect supporting review evidence
-* ask natural-language questions about the selected suburb/category
-* generate an AI-written sentiment brief
-* export a PDF-style report
-* run evaluation checks against AI answers and report generation behaviour
+* review theme drivers, a word cloud, and star and label distributions
+* select a suburb visually from a Queensland boundary map
+* ask natural-language questions about suburb sentiment, the themes behind it, and specific places and their review quotes, answered only from the data
+
+## The two datasets
+
+PlacePulse layers two datasets at two grains rather than merging them:
+
+```txt
+sentiment_suburbs   suburb x category x month aggregates
+                    -> the dashboard, and the assistant's suburb tools
+
+poi_* (about 27M    individual Queensland businesses, reviews, themes and words
+rows)               -> the assistant's place tools, and the planned Places explorer
+```
+
+The dashboard answers "what" (aggregate and visual). The place data answers "why and show me" (real businesses and real review quotes) through the assistant. The whole product is scoped to Queensland, because the place data is Queensland only.
 
 ## Architecture
 
@@ -54,362 +76,182 @@ The application allows users to:
 flowchart TD
   User["User"]
   App["Next.js App Router on Vercel"]
-  ServerComponents["Server Components"]
-  ClientComponents["Client Components"]
-  RouteHandlers["Vercel Functions / Route Handlers"]
+  ServerComponents["Server Components (dashboard)"]
+  ClientComponents["Client Components (filters, charts, map, chat)"]
+  AssistantRoute["Route Handler: app/api/assistant"]
+  SentimentRoutes["Route Handlers: sentiment, filters, revalidate"]
   Services["Typed service layer"]
-  Repositories["Postgres repositories"]
+  Repositories["server-only repositories"]
   Database["Neon Postgres via Vercel Marketplace"]
-  AISDK["Vercel AI SDK"]
-  Briefs["Durable briefs and PDF reports"]
-  Evals["Evaluation checks"]
+  Gateway["Vercel AI Gateway"]
+  Tools["Grounded typed read tools"]
 
   User --> App
   App --> ServerComponents
   App --> ClientComponents
   ServerComponents --> Services
-  ClientComponents --> RouteHandlers
-  RouteHandlers --> Services
+  ClientComponents --> SentimentRoutes
+  ClientComponents --> AssistantRoute
+  SentimentRoutes --> Services
+  AssistantRoute --> Gateway
+  AssistantRoute --> Tools
+  Tools --> Services
   Services --> Repositories
   Repositories --> Database
-  RouteHandlers --> AISDK
-  AISDK --> Services
-  Services --> Briefs
-  Services --> Evals
 ```
 
 ## Platform choices
 
 ### Vercel
 
-The app is deployed on Vercel and uses Vercel-native patterns where appropriate:
+The app is deployed on Vercel and uses Vercel-native patterns:
 
-* Next.js App Router
+* Next.js App Router (one deployment, no front-end and back-end split)
 * Server Components for the initial dashboard view
-* Client Components only where interactivity is required
-* Route Handlers for API, AI and report generation endpoints
-* Vercel Functions for server-side workloads
-* Fluid Compute configuration for AI and report routes
+* Client Components only where interactivity is required (filters, charts, map, chat)
+* Route Handlers for the sentiment APIs and the streaming assistant
+* Fluid Compute for the assistant route, so an interactive endpoint stays warm between turns
+* the **Vercel AI Gateway** for model access, addressed by `provider/model` slug, with OIDC auth on Vercel and an `AI_GATEWAY_API_KEY` for local development
+* Vercel Marketplace Postgres through Neon
+* Vercel Blob to host the suburb boundary GeoJSON, kept out of the app bundle and pointed at by an environment variable
 * Vercel Analytics and Speed Insights for observability
-* Vercel Marketplace Postgres integration through Neon
-* Vercel AI SDK for conversational analytics and briefing
-* optional Vercel Blob path for generated report storage
 
 ### Postgres / Neon
 
-The sentiment dataset is hosted in Postgres/Neon.
-
-The CSV/TSV import script is only an ingestion tool. It reads the source file and inserts rows into the deployed database. At runtime, the app does not read from local files.
+The sentiment and place datasets are hosted in Neon Postgres. The app reads through the HTTP driver (`@neondatabase/serverless`) in a `server-only` repository, service and component layering. The import scripts are ingestion tools only: at runtime the app does not read from local files.
 
 Runtime path:
 
 ```txt
-Dashboard or AI request
-  ↓
-Next.js Route Handler / Server Component
-  ↓
-sentimentService
-  ↓
-sentimentRepository
-  ↓
-Neon Postgres
-  ↓
-typed response
+Dashboard or assistant request
+  -> Next.js Route Handler or Server Component
+  -> sentimentService (or a grounded assistant tool)
+  -> sentimentRepository / poiRepository
+  -> Neon Postgres
+  -> typed response
 ```
 
 ## Data model
 
-The primary table is:
+The dashboard reads the suburb aggregate:
 
 ```txt
-sentiment_area_category_month
+sentiment_suburbs
 ```
 
-It stores monthly suburb/category sentiment records including:
+Each row is a suburb, category, granularity and month with average rating, a 0 to 100 satisfaction score, review volume, positive / negative / neutral breakdowns, and JSON columns for theme sentiment, the word cloud and top review evidence. The app is scoped to Queensland through a `qld_suburbs` reference built from the place data (see `lib/db/qld-suburbs.sql`).
 
-* area name
-* category
-* aggregation type
-* month
-* POI and review coverage
-* average rating
-* star-rating sentiment score
-* review-text sentiment score
-* overall satisfaction score
-* positive / negative / neutral / unknown review counts
-* percentage breakdowns
-* rating-text conflict metrics
-* theme JSON
-* word-cloud JSON
-* top-review evidence JSON
+The place-level dataset lives in the `poi_*` landing tables (places, reviews, review scores, themes, theme hits and word terms), loaded from a gzipped CSV export with a streaming COPY loader.
 
-Supporting tables are used for:
-
-* import jobs
-* durable brief jobs
-* chat sessions
-* saved views
-* evaluation runs
-* audit events
+Supporting tables: `chat_sessions`, `brief_jobs`, `eval_runs`, `import_jobs`, `audit_events`.
 
 ## Rendering strategy
 
-The app separates static, server-rendered and client-rendered work.
-
 ### Server-rendered
 
-The dashboard shell and first sentiment view are rendered server-side so the page has useful content on first load.
-
-This supports:
-
-* faster perceived load
-* stronger LCP
-* lower client-side JavaScript
-* stable layout before hydration
-* better indexability for public report pages
+The dashboard shell and the first sentiment view render server-side so the page has useful content on first load. This supports faster perceived load, stronger LCP, lower client JavaScript and a stable layout before hydration.
 
 ### Client-rendered
 
-Client Components are used where interactivity is required:
+Client Components are used only where interactivity is required: the filter bar, the ECharts and ApexCharts visualisations, the Mapbox suburb map, and the assistant chat. Heavy libraries are code-split with `next/dynamic` so they stay out of the dashboard's first load, and the map mounts only when its drawer opens.
 
-* dashboard filters
-* charts
-* assistant drawer
-* brief generation actions
-* dynamic table interactions
+### Streaming
 
-### Streaming and loading states
-
-The app uses loading states and component boundaries so expensive sections can load progressively:
-
-* dashboard shell first
-* KPI cards early
-* charts and evidence panels progressively
-* AI responses streamed token-by-token through the Vercel AI SDK
+The assistant streams token by token over a Route Handler using the Vercel AI SDK, and `app/loading.tsx` streams a dashboard skeleton while the first slice resolves.
 
 ## Caching strategy
 
-The app uses layered caching.
-
-### Database indexes
-
-Postgres indexes support common access patterns:
-
-* suburb + category + date
-* category + date
-* suburb + date
-* aggregation type + date
-
-### API caching
-
-Read-heavy API routes return cache headers such as:
-
-```txt
-s-maxage=300, stale-while-revalidate=3600
-```
-
-This is suitable for sentiment analytics because the dataset is analytical and does not need second-by-second freshness.
-
-### Next.js fetch caching
-
-Frontend data requests are structured so dashboard reads can be cached and revalidated.
-
-### Revalidation
-
-The import flow can be paired with revalidation so fresh data becomes visible after imports complete.
+* **Database indexes** support the common access patterns (suburb plus category plus date, category plus date, suburb plus date, granularity plus date).
+* **API caching**: read-heavy sentiment routes return `s-maxage` with `stale-while-revalidate`, suitable because the data is analytical and does not need second-by-second freshness.
+* **Revalidation**: the import flow can be paired with on-demand revalidation so fresh data becomes visible after an import.
 
 ## Core Web Vitals decisions
 
-The UI is designed around the main Core Web Vitals concerns.
-
-### LCP
-
-* server-render the first dashboard state
-* avoid blocking the first view with large client bundles
-* keep the header and primary dashboard content lightweight
-* progressively load deeper analytics panels
-
-### CLS
-
-* reserve space for charts and KPI cards
-* use consistent card dimensions
-* avoid layout shifts when filters and data load
-
-### INP
-
-* keep filters lightweight
-* avoid pushing all chart/report logic into the client
-* use server-side aggregation where possible
-* isolate expensive client interactions
+* **LCP**: server-render the first dashboard state, keep the header and primary content lightweight, and progressively load deeper panels.
+* **CLS**: reserve space for charts and KPI cards, and use consistent card dimensions.
+* **INP**: keep filters lightweight, keep aggregation server-side, and code-split expensive client interactions (charts, map, chat).
 
 ## AI features
 
-PlacePulse includes an AI assistant for conversational analytics.
+PlacePulse includes a grounded conversational assistant, mounted today as a docked copilot on the dashboard.
 
 Example questions:
 
-* “What is driving negative sentiment in Abbotsford?”
-* “Summarise healthcare sentiment for this suburb.”
-* “Which themes should the council prioritise?”
-* “Generate an executive brief for this selected view.”
-* “Compare this suburb against the category trend.”
+* "How satisfied are visitors with Brisbane City?"
+* "What is driving negative reviews in Surfers Paradise?"
+* "Compare Fortitude Valley and South Brisbane."
+* "What do people say about cafes in Fortitude Valley?"
 
-The assistant is grounded in backend sentiment data. It does not answer from memory alone.
+The assistant answers only from tool output. It does not answer from memory and cannot write SQL.
 
-## Vercel AI SDK
+### How the assistant works
 
-The AI layer uses the Vercel AI SDK for:
-
-* streaming chat responses
-* typed tool calling
-* structured report generation
-* reusable model configuration
-* fallback-ready model routing
-* evaluation support
-
-Core files:
-
-```txt
-lib/ai/model.ts
-lib/ai/prompt.ts
-lib/ai/tools.ts
-app/api/chat/route.ts
-app/api/briefs/route.ts
-```
-
-The assistant uses tools such as:
-
-* get sentiment dashboard context
-* get available filters
-* get suburb/category trend
-* get supporting review evidence
-* generate executive brief
-
-## AI safety and grounding
-
-The assistant is designed to:
-
-* answer only from retrieved sentiment data
-* reference the relevant suburb, category and time period
-* distinguish evidence-backed findings from assumptions
-* avoid inventing data where no record exists
-* surface data coverage limitations
-* avoid overclaiming where review coverage is low
-
-## Evaluation approach
-
-The app includes lightweight evaluation checks for the AI Cloud path.
-
-Evaluation examples:
-
-* groundedness check: answer must reference retrieved suburb/category/date data
-* no-data check: assistant must not invent metrics when records are missing
-* brief quality check: generated brief must include summary, drivers, risks and recommended actions
-* tool-use check: assistant should call the sentiment tool before answering analytical questions
-* regression check: known test prompts should continue to pass
-
-Evaluation files:
-
-```txt
-lib/evals/cases.ts
-lib/evals/runEvalCase.ts
-scripts/run-evals.ts
-app/evals/page.tsx
-```
-
-Run evals with:
-
-```bash
-npm run evals
-```
+* **Model access** through the Vercel AI Gateway, configured in one place (`lib/ai/model.ts`), defaulting to `anthropic/claude-sonnet-4-6`.
+* **A streaming Route Handler** (`app/api/assistant/route.ts`) runs `streamText` with a bounded multi-step tool loop and returns the UI-message stream that the client consumes.
+* **Grounded typed tools** (`lib/assistant/tools.ts`): zod-validated read tools over the same service and repository layers the dashboard uses, so the model can only surface figures that already exist in Neon. Suburb tools cover sentiment, trend, drivers, category breakdown and comparison; place tools cover individual businesses, their themes and real review quotes.
+* **A grounding contract** (`lib/assistant/systemPrompt.ts`): answer only from tool results, name the figure and the suburb or place it came from, and never invent a number, suburb or business.
+* **Persistence** (`lib/assistant/sessions.ts`): each completed turn is written to `chat_sessions` after the response is delivered, so the write never sits on the response path.
+* **Rendering**: assistant markdown (including tables) renders with **Streamdown**, and a tool-call timeline shows each tool, its input and its output so every answer is auditable.
 
 ## Tech stack
 
-* Next.js App Router
-* React
-* TypeScript
-* Tailwind CSS
-* Vercel
-* Vercel Functions
-* Vercel AI SDK
-* Neon Postgres
-* Postgres.js
-* Zod
-* csv-parse
-* Recharts
-* React PDF Renderer
-* Vercel Analytics
-* Vercel Speed Insights
+* Next.js App Router (Turbopack), React 19, TypeScript
+* Tailwind CSS v4 and flowbite-react
+* Vercel, Vercel Functions (Fluid Compute), Vercel AI Gateway
+* Vercel AI SDK (`ai` and `@ai-sdk/react`) with Streamdown
+* Neon Postgres (`@neondatabase/serverless` HTTP driver); `pg` and `pg-copy-streams` for the bulk loader
+* Zod for validation, `csv-parse` for ingestion
+* ECharts and ApexCharts for visualisations
+* Mapbox GL, Turf and Terraformer for the suburb map
+* React PDF Renderer and Vercel Blob for the planned briefs
+* Vercel Analytics and Speed Insights
 
 ## Project structure
 
 ```txt
 app/
   api/
-    chat/
-      route.ts
-    sentiment/
-      route.ts
-    filters/
-      route.ts
-    briefs/
-      route.ts
-    reports/
-      [id]/
-        route.ts
-  briefs/
-    [id]/
-      page.tsx
-  evals/
-    page.tsx
+    assistant/route.ts        streaming assistant endpoint
+    sentiment/route.ts        sentiment slice
+    sentiment/trend/route.ts  trend series
+    sentiment/compare/route.ts
+    filters/route.ts          filter catalogue
+    revalidate/route.ts       on-demand revalidation
   layout.tsx
-  page.tsx
+  loading.tsx
+  page.tsx                    the dashboard
 
 components/
   ai/
-    SentimentAssistant.tsx
-  dashboard/
-    DashboardShell.tsx
-    FilterBar.tsx
-    KpiCards.tsx
-    SentimentTrendChart.tsx
-    ThemePanel.tsx
-    WordCloudPanel.tsx
-    ReviewEvidencePanel.tsx
-    DataQualityPanel.tsx
-  reports/
-    SentimentReportDocument.tsx
-  ui/
-    Card.tsx
-    Button.tsx
-    Badge.tsx
-    Skeleton.tsx
+    AssistantChat.tsx         shared chat (useChat, streaming, composer)
+    AssistantDock.tsx         docked copilot with a maximize toggle
+    ToolCallView.tsx          the tool-call audit timeline
+  dashboard/                  filter bar, KPIs, charts, drivers, word cloud, map
+  shell/AppShell.tsx          sidebar shell
+  ui/                         Card, Button, Badge, Skeleton, Spinner
 
 lib/
-  ai/
-    model.ts
-    prompt.ts
-    tools.ts
+  ai/model.ts                 Gateway-backed model resolution
+  assistant/
+    tools.ts                  grounded typed read tools
+    systemPrompt.ts           the grounding contract
+    sessions.ts               chat_sessions persistence
   db/
-    client.ts
-    schema.sql
-  evals/
-    cases.ts
-    runEvalCase.ts
-  repositories/
-    sentimentRepository.ts
-    briefRepository.ts
-  services/
-    sentimentService.ts
-    briefingService.ts
-    reportService.ts
-  types.ts
-  validation.ts
+    client.ts                 Neon HTTP client
+    schema.sql                aggregate and supporting tables
+    poi-schema.sql            POI landing tables
+    poi-indexes.sql
+    qld-suburbs.sql           Queensland scoping
+  repositories/               sentimentRepository, poiRepository
+  services/sentimentService.ts
+  validation/sentiment.ts
+  filters.ts, types.ts, ui/sentiment.ts, cache/cacheKeys.ts
 
 scripts/
-  migrate.ts
-  import-sentiment-data.ts
-  run-evals.ts
+  migrate.ts                  apply schema
+  import-sentiment-data.ts    load the suburb aggregate
+  import-poi-data.ts          stream the POI export into Neon
+  build-suburb-boundaries.mjs build the Queensland boundary GeoJSON
 ```
 
 ## Getting started
@@ -420,7 +262,7 @@ scripts/
 npm install
 ```
 
-### 2. Create local environment file
+### 2. Create a local environment file
 
 ```bash
 cp .env.example .env.local
@@ -428,55 +270,55 @@ cp .env.example .env.local
 
 ### 3. Configure environment variables
 
-Required:
+Required to run the dashboard:
 
 ```env
 DATABASE_URL=
-OPENAI_API_KEY=
+NEXT_PUBLIC_MAPBOX_TOKEN=
+NEXT_PUBLIC_SUBURB_GEOJSON_URL=
+```
+
+Required for the assistant:
+
+```env
+AI_GATEWAY_API_KEY=
 ```
 
 Optional:
 
 ```env
-BLOB_READ_WRITE_TOKEN=
 NEXT_PUBLIC_APP_ENV=development
 NEXT_PUBLIC_ENABLE_ARCHITECTURE_PANEL=true
 EVALS_REQUIRE_PASS=false
+SUBURB_BOUNDARY_GEOJSON_URL=
 ```
 
-### 4. Pull environment variables from Vercel
+`NEXT_PUBLIC_*` values are inlined at build time, so set them before building and restart the dev server after changing them. On Vercel the AI Gateway authenticates with the project's OIDC token, so `AI_GATEWAY_API_KEY` is only needed locally.
 
-After the project is connected to Vercel and Neon:
+Note: `vercel env pull` overwrites `.env.local` and returns blank values for variables marked sensitive on Vercel. Pull into a separate file (`vercel env pull /tmp/x.env`) and copy across what you need, rather than letting it target `.env.local`.
 
-```bash
-vercel env pull .env.local
-```
-
-### 5. Run database migration
+### 4. Run the database migration
 
 ```bash
 npm run db:migrate
 ```
 
-### 6. Import sentiment data
+### 5. Import data
 
 ```bash
-npm run import:sentiment -- ./data/sentiment_full.csv
+npm run import:sentiment -- ./data/sentiment.csv   # the suburb aggregate
+tsx scripts/import-poi-data.ts                     # the Queensland POI dataset
 ```
 
 Local data files are ignored and should not be committed.
 
-### 7. Run locally
+### 6. Run locally
 
 ```bash
 npm run dev
 ```
 
-Open:
-
-```txt
-http://localhost:3000
-```
+Open `http://localhost:3000`.
 
 ## Scripts
 
@@ -485,106 +327,42 @@ http://localhost:3000
   "dev": "next dev",
   "build": "next build",
   "start": "next start",
-  "lint": "next lint",
+  "lint": "eslint",
+  "typecheck": "tsc --noEmit",
   "db:migrate": "tsx scripts/migrate.ts",
   "import:sentiment": "tsx scripts/import-sentiment-data.ts",
-  "evals": "tsx scripts/run-evals.ts"
+  "evals": "tsx scripts/run-evals.ts",
+  "ci": "npm run typecheck && npm run lint && npm run evals && npm run build"
 }
 ```
+
+The `evals` script (and therefore `ci`) is reserved for the planned evaluation suite and is not wired up yet.
 
 ## Deployment
 
 The app is deployed on Vercel.
 
-Recommended environments:
-
 ```txt
-main      → production
-staging   → preview/staging
-feature/* → preview deployments
+main      -> production
+staging   -> preview/staging
+feature/* -> preview deployments
 ```
 
-Deployment flow:
+After a deploy, verify in the Vercel preview or production URL:
 
-```bash
-git checkout staging
-git push origin staging
-```
-
-Open the Vercel Preview Deployment and verify:
-
-* dashboard loads
-* filters work
-* API routes return data
-* AI assistant streams a response
-* brief generation completes
-* eval page loads
-
-Then merge to main:
-
-```bash
-git checkout main
-git merge staging
-git push origin main
-```
-
-## Demo
-
-The app demonstrates:
-
-* a server-rendered analytics dashboard
-* cached sentiment API routes
-* Postgres-backed sentiment data
-* conversational analytics using the Vercel AI SDK
-* generated sentiment briefs and PDF reports
-* lightweight AI evaluation checks
-* Vercel deployment, environment configuration and production-style service boundaries
-
-## Production considerations
-
-A full production version would add:
-
-* authentication and organisation workspaces
-* role-based access controls
-* row-level access policies
-* scheduled import jobs
-* automated data-quality checks before publish
-* saved dashboard views
-* shareable public reports
-* Vercel Blob storage for generated reports
-* AI Gateway observability and provider fallback
-* model cost tracking
-* rate limiting
-* monitoring and alerting
-* expanded evaluation test suite
-* multi-region performance testing
-
-## Roadmap
-
-Planned extensions:
-
-* authentication and organisation workspaces
-* role-based access controls
-* scheduled data imports
-* automated data-quality checks before publish
-* saved dashboard views
-* shareable public reports
-* AI Gateway observability and provider fallback
-* expanded evaluation test suite
-* report storage with Vercel Blob
-* usage analytics and cost monitoring
-* multi-region performance testing
+* the dashboard loads and opens on a Queensland suburb
+* filters and the suburb map work
+* the sentiment API routes return data
+* the assistant streams a grounded answer
 
 ## Why this project exists
 
-PlacePulse is designed to show how sentiment intelligence can move from raw review data to operational decision-making.
+PlacePulse is designed to show how sentiment intelligence can move from raw review data to operational decision-making, on Vercel-native primitives. It focuses on three outcomes:
 
-The product focuses on three outcomes:
-
-1. **Faster analysis** — users can move from suburb/category filters to sentiment drivers quickly.
-2. **Evidence-backed reporting** — every summary is linked back to metrics, themes and review evidence.
-3. **AI-assisted workflows** — the assistant and brief generator reduce manual analysis without bypassing the underlying data.
+1. **Faster analysis**: move from suburb and category filters to sentiment drivers quickly.
+2. **Evidence-backed answers**: every assistant figure is read from a tool over the real data, with an audit timeline to prove it.
+3. **AI-assisted workflows**: the assistant (and the planned briefs) reduce manual analysis without bypassing the underlying data.
 
 ## License
 
-This project is for demonstration and portfolio purposes only, feel free to rip out whatever you want from it should it help you out!
+This project is for demonstration and portfolio purposes only. Feel free to reuse whatever helps you.
