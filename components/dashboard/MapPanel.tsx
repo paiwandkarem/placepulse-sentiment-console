@@ -16,7 +16,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 // The boundary file is a static asset by default; point this env at a CDN URL to serve it from
 // object storage instead (as the in-house map does).
-const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL || "/au-suburbs.geojson";
+const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL || "/qld-suburbs.geojson";
 
 // Green coverage, a deeper green on hover, purple when selected. Driven entirely by
 // feature-state so mapbox recolours on the GPU without re-sending data.

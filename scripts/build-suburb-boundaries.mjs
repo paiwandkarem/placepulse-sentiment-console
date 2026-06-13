@@ -1,6 +1,7 @@
-// Builds the static suburb-boundary file the map loads. Following the in-house map, we serve one
-// pre-built GeoJSON of the whole country (every suburb that exists in our dataset, tagged with
-// our canonical area name) rather than re-deriving it through a function on every request.
+// Builds the static suburb-boundary file the map loads. We serve one pre-built GeoJSON of
+// Queensland (every QLD suburb, tagged with our canonical area name) rather than re-deriving it
+// through a function on every request. The product is scoped to Queensland, so the national source
+// is filtered to QLD here, which also keeps the asset small.
 //
 // The boundaries are kept at near-full detail: only a tiny tolerance (to drop points the eye
 // can't see) and 5-decimal coordinates (~1 m). The result is served as a static asset, so its
@@ -37,12 +38,13 @@ console.log("fetching boundary file...");
 const all = await fetch(BOUNDARY_URL).then((r) => r.json());
 console.log(`  ${all.features?.length ?? 0} source features`);
 
-// Include EVERY suburb so the map has no holes, exactly like the in-house map. For suburbs that
-// exist in our dataset, tag the canonical area name (so a click filters the dashboard); for the
-// rest, keep the boundary file's own name and mark hasData=false (clicking one just shows the
-// "no data" state). The suburb name lives in SAL_NAME21.
+// Include every QLD suburb so the map has no holes within the state. For suburbs that exist in our
+// dataset, tag the canonical area name (so a click filters the dashboard); for the rest, keep the
+// boundary file's own name and mark hasData=false (clicking one just shows the "no data" state).
+// The suburb name lives in SAL_NAME21, the state in STE_NAME21.
 const features = [];
 for (const feature of all.features ?? []) {
+  if (feature.properties?.STE_NAME21 !== "Queensland") continue;
   const salName = feature.properties?.SAL_NAME21;
   if (typeof salName !== "string" || !salName) continue;
   const canonical = wanted.get(normalise(salName));
@@ -62,6 +64,6 @@ for (const feature of all.features ?? []) {
 }
 
 mkdirSync("public", { recursive: true });
-writeFileSync("public/au-suburbs.geojson", JSON.stringify({ type: "FeatureCollection", features }));
+writeFileSync("public/qld-suburbs.geojson", JSON.stringify({ type: "FeatureCollection", features }));
 const mb = (Buffer.byteLength(JSON.stringify({ type: "FeatureCollection", features })) / 1048576).toFixed(1);
-console.log(`wrote public/au-suburbs.geojson: ${features.length} features, ${mb} MB`);
+console.log(`wrote public/qld-suburbs.geojson: ${features.length} features, ${mb} MB`);
