@@ -17,7 +17,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+    <div role="alert" className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <h2 className="text-xl font-bold text-gray-900">Something went wrong</h2>
       <p className="mt-2 max-w-md text-sm text-gray-600">
         The dashboard could not load. This is usually temporary. Try again, and if it keeps happening the data

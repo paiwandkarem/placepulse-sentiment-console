@@ -98,6 +98,41 @@ enough; the assistant inherits the scope through the same service.
 | P3 | `feat(places): add place detail pages` | `app/places/[id]/page.tsx`: hero, theme breakdown, paginated reviews, word cloud. The assistant deep-links here. |
 | P4 | `feat(places): add the QLD place map` | A point map on the directory (mapbox, clustered) scoped to the loaded places. Code-split so it does not weigh the directory's first load. |
 
+### Phase 5: brief types (AI Cloud, proposed)
+
+Today a brief is always one shape: a single-suburb executive overview. The generation
+pipeline (schema-constrained `generateObject` -> `@react-pdf` render -> Blob -> `brief_jobs`,
+async job + poll) is general; only the content schema and the PDF template are
+suburb-overview-specific. So a **family of brief types** is a fan-out over that one
+pipeline, not a new pipeline. Each type is a discriminated-union member with its own
+content schema, its own draft prompt, and its own document template; everything else
+(the job runner, polling UI, Blob storage, fonts, charts, risk tiers, quote selection) is
+shared.
+
+```
+brief type        input                       what it answers
+overview (current) one suburb (+ category)     where this suburb stands, what to do
+comparison         2 to 3 suburbs (+ category) who leads on what, and why; head to head
+category deep-dive one category, top N suburbs best/worst for this category across QLD
+momentum           one suburb or a region      what moved most YoY: risers, fallers, new themes
+```
+
+| # | Commit | Scope |
+|---|--------|-------|
+| B3 | `feat(briefs): introduce brief types and a type selector` | Make the brief shape a discriminated union keyed by `type` in `lib/briefs/schema.ts` (the current schema becomes the `overview` member). Add a `type` column to `brief_jobs` (defaulted to `overview`, backward compatible) plus the stored input params (`area_names[]`, `category`). `POST /api/briefs` accepts `{ type, areaNames, category }` and validates per type. `BriefsView` gains a segmented type selector; the list shows the type as a badge. No new render path yet (only `overview` is wired). |
+| B4 | `feat(briefs): suburb comparison brief` | The comparison member: fetch each suburb's `getSentimentDashboardContext` (the same call the suburb panel uses) and reuse the existing `/api/sentiment/compare` path to diff them. Draft a comparative narrative (who wins each theme, the decisive gaps, a recommendation per suburb). Render a side-by-side KPI column layout and a grouped multi-suburb bar chart (extend `lib/briefs/charts.tsx`, which already draws YoY grouped bars) plus a "where each leads" theme table. The multi-suburb picker in `BriefsView` adds 2 to 3 suburbs. |
+| B5 | `feat(briefs): category deep-dive and momentum briefs` | The remaining members: category deep-dive ranks the top suburbs for one category (reusing `categoryBreakdown`); momentum surfaces the biggest YoY movers and emerging/fading themes (reusing the trend and theme-delta data already in the dashboard context). Each adds a draft prompt and a template variant; both ride the same job runner. |
+
+Reuse to lean on: `getSentimentDashboardContext` (per suburb), the `/api/sentiment/compare`
+route, `charts.tsx` grouped bars, `riskTierFor` and the theme/quote helpers in
+`lib/briefs/service.tsx`. The SA story stays clean: one async generation pipeline on Fluid
+Compute, typed and schema-constrained, generalised to a report family via a discriminated
+union and per-type templates, with the heavy render kept off the request path.
+
+Sequencing: B3 is the enabling refactor (do it first; it is low risk and unlocks the rest).
+B4 (comparison) is the highest-value follow-on and the one explicitly requested. B5 is
+optional polish once B4 proves the pattern.
+
 ### Closing
 
 | # | Commit | Scope |

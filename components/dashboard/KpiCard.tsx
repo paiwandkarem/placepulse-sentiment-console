@@ -1,7 +1,7 @@
 "use client";
 
-import { Tooltip } from "flowbite-react";
 import { ArrowDown, ArrowUp, Calendar } from "lucide-react";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/ui/sentiment";
 
 type Metric = "number" | "percent";
@@ -35,13 +35,7 @@ export function KpiCard({
   return (
     <div className="flex h-full flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-        {hoverText ? (
-          <Tooltip content={hoverText} animation="duration-200">
-            <span className="cursor-help">{label}</span>
-          </Tooltip>
-        ) : (
-          <span>{label}</span>
-        )}
+        {hoverText ? <Tooltip content={hoverText}>{label}</Tooltip> : <span>{label}</span>}
       </div>
 
       <div className="flex items-baseline gap-2">

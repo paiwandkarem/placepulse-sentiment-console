@@ -3,32 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin, X } from "lucide-react";
-import type { ExpressionSpecification } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
+import { MapLegend } from "@/components/ui/MapLegend";
+import {
+  MAP_COLORS,
+  MAP_STYLE,
+  SUBURB_FILL_COLOR,
+  SUBURB_FILL_OPACITY,
+  SUBURB_LINE_COLOR,
+  SUBURB_LINE_WIDTH,
+  hasMapToken,
+  popupCard,
+} from "@/lib/map/config";
 
-// Slide-over map used to select which suburb the dashboard shows. The
-// whole national suburb set is one static, near-full-detail GeoJSON loaded once into a single
-// source (built by scripts/build-suburb-boundaries.mjs), so every suburb is present with no
-// streaming and no holes. Hover and selection are driven by mapbox feature-state, so the fill
-// recolours on the GPU with no data churn no matter how many polygons are drawn. `promoteId`
-// lifts each suburb's name to the feature id so feature-state can address it. mapbox-gl runs only
-// in the effect (it needs `window`).
+// Slide-over map used to select which suburb the dashboard shows. The whole national suburb set is
+// one static, near-full-detail GeoJSON loaded once into a single source (built by
+// scripts/build-suburb-boundaries.mjs), so every suburb is present with no streaming and no holes.
+// Hover and selection are driven by mapbox feature-state, so the fill recolours on the GPU with no
+// data churn no matter how many polygons are drawn. `promoteId` lifts each suburb's name to the
+// feature id so feature-state can address it. It shares its basemap, controls, hover card, status
+// overlay and legend with the Places map (see lib/map/config.ts) so the two read as one product.
 
 // The boundary file is a static asset by default; point this env at a CDN URL to serve it from
 // object storage instead.
 const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL || "/qld-suburbs.geojson";
-
-// Green coverage, a deeper green on hover, purple when selected. Driven entirely by
-// feature-state so mapbox recolours on the GPU without re-sending data.
-const FILL_COLOR: ExpressionSpecification = [
-  "case",
-  ["boolean", ["feature-state", "hover"], false],
-  "#047857",
-  ["boolean", ["feature-state", "selected"], false],
-  "#7c3aed",
-  "#10b981",
-];
-const BORDER_COLOR = "#065f46";
 
 export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: string }) {
   const router = useRouter();
@@ -41,9 +40,9 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
   const hoveredRef = useRef<string | null>(null);
   const selectedStateRef = useRef<string | null>(null);
 
-  const hasToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-  const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(hasToken ? "loading" : "no-token");
-  const [hoverName, setHoverName] = useState<string | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(
+    hasMapToken() ? "loading" : "no-token",
+  );
 
   function setParam(mutate: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(params.toString());
@@ -74,11 +73,13 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
 
         const map = new mapboxgl.Map({
           container: containerRef.current,
-          style: "mapbox://styles/mapbox/streets-v12",
+          style: MAP_STYLE,
           center: [134, -25.5],
           zoom: 3,
+          attributionControl: false,
         });
         mapRef.current = map;
+        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
 
         map.on("load", async () => {
           // promoteId lifts each suburb's name to the feature id so feature-state can address it.
@@ -91,13 +92,13 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
             id: "suburb-fill",
             type: "fill",
             source: "suburbs",
-            paint: { "fill-color": FILL_COLOR, "fill-opacity": 0.6 },
+            paint: { "fill-color": SUBURB_FILL_COLOR, "fill-opacity": SUBURB_FILL_OPACITY },
           });
           map.addLayer({
             id: "suburb-line",
             type: "line",
             source: "suburbs",
-            paint: { "line-color": BORDER_COLOR, "line-width": 1 },
+            paint: { "line-color": SUBURB_LINE_COLOR, "line-width": SUBURB_LINE_WIDTH },
           });
 
           map.on("click", "suburb-fill", (event: { features?: GeoJSON.Feature[] }) => {
@@ -105,20 +106,23 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
             if (typeof name === "string") setParam((next) => next.set("areaName", name));
           });
 
-          // Hover: paint the feature under the cursor red via feature-state, clearing the previous
-          // one, and surface its name in the label box. Acts only when the hovered feature changes
-          // so React state churn stays minimal. No data is re-sent, so it stays smooth.
+          // Hover: recolour the feature under the cursor via feature-state (clearing the previous
+          // one) and float the shared hover card with its name. Acts only when the hovered feature
+          // changes so React state churn stays minimal. No data is re-sent, so it stays smooth.
+          const hoverPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           map.on("mousemove", "suburb-fill", (event: any) => {
             map.getCanvas().style.cursor = "pointer";
             const id = event.features?.[0]?.id;
-            if (id == null || id === hoveredRef.current) return;
-            if (hoveredRef.current !== null) {
-              map.setFeatureState({ source: "suburbs", id: hoveredRef.current }, { hover: false });
+            if (id == null) return;
+            if (id !== hoveredRef.current) {
+              if (hoveredRef.current !== null) {
+                map.setFeatureState({ source: "suburbs", id: hoveredRef.current }, { hover: false });
+              }
+              hoveredRef.current = id;
+              map.setFeatureState({ source: "suburbs", id }, { hover: true });
             }
-            hoveredRef.current = id;
-            map.setFeatureState({ source: "suburbs", id }, { hover: true });
-            setHoverName(String(id));
+            hoverPopup.setLngLat(event.lngLat).setHTML(popupCard({ title: String(id) })).addTo(map);
           });
           map.on("mouseleave", "suburb-fill", () => {
             map.getCanvas().style.cursor = "";
@@ -126,7 +130,7 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
               map.setFeatureState({ source: "suburbs", id: hoveredRef.current }, { hover: false });
               hoveredRef.current = null;
             }
-            setHoverName(null);
+            hoverPopup.remove();
           });
 
           // Load every suburb in one go.
@@ -149,6 +153,10 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
           } catch {
             if (!cancelled) setStatus("error");
           }
+        });
+
+        map.on("error", () => {
+          if (!cancelled) setStatus("error");
         });
       } catch {
         if (!cancelled) setStatus("error");
@@ -190,18 +198,15 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
       </p>
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200">
         <div ref={containerRef} className="h-full w-full" />
-        {status !== "ready" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-sm text-gray-500">
-            {status === "loading" && "Loading map…"}
-            {status === "error" && "Map unavailable."}
-            {status === "no-token" && "Map token not configured."}
-          </div>
-        )}
-        {status === "ready" && hoverName && (
-          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-lg bg-white/95 px-3 py-1.5 text-sm font-semibold text-gray-800 shadow-md ring-1 ring-gray-200">
-            <MapPin className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-            {hoverName}
-          </div>
+        {status !== "ready" && <MapStatusOverlay status={status} />}
+        {status === "ready" && (
+          <MapLegend
+            className="absolute bottom-3 left-3"
+            items={[
+              { color: MAP_COLORS.fill, label: "Suburb" },
+              { color: MAP_COLORS.selectedLine, label: "Selected", outline: true },
+            ]}
+          />
         )}
       </div>
     </div>

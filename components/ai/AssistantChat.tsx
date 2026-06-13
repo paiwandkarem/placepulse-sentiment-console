@@ -70,7 +70,14 @@ export function AssistantChat({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        aria-atomic="false"
+        className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
+      >
         {messages.length === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
@@ -139,6 +146,7 @@ export function AssistantChat({ className }: { className?: string }) {
               }
             }}
             rows={1}
+            aria-label="Ask the assistant a question"
             placeholder="Ask about a suburb, theme, or place"
             className="max-h-32 flex-1 resize-none bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
           />
@@ -149,7 +157,7 @@ export function AssistantChat({ className }: { className?: string }) {
               aria-label="Stop generating"
               className="rounded-lg bg-gray-200 p-1.5 text-gray-700 hover:bg-gray-300"
             >
-              <Square className="h-4 w-4" />
+              <Square className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : (
             <button
@@ -158,7 +166,7 @@ export function AssistantChat({ className }: { className?: string }) {
               aria-label="Send message"
               className="rounded-lg bg-gray-900 p-1.5 text-white transition-colors hover:bg-gray-800 disabled:opacity-40"
             >
-              <ArrowUp className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>

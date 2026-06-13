@@ -131,7 +131,11 @@ export function BriefsView({
           disabled={submitting}
           className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <FileText className="h-4 w-4" aria-hidden="true" />
+          )}
           Generate brief
         </button>
       </form>
@@ -170,14 +174,17 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               title="Delete brief"
               className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
       {brief.status === "running" && (
-        <p className="mt-3 text-sm text-gray-500">Drafting the brief and rendering the PDF...</p>
+        <div className="mt-3 flex min-h-[3.5rem] items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Drafting the brief and rendering the PDF...
+        </div>
       )}
       {brief.status === "failed" && (
         <p className="mt-3 text-sm text-rose-600">{brief.error ?? "Generation failed."}</p>
@@ -194,7 +201,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               onClick={() => track("brief_viewed")}
               className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               View PDF
             </a>
           )}
@@ -213,7 +220,7 @@ function StatusPill({ status }: { status: BriefJob["status"] }) {
   const { label, icon: Icon, spin, className } = map[status];
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium", className)}>
-      <Icon className={cn("h-3.5 w-3.5", spin && "animate-spin")} />
+      <Icon className={cn("h-3.5 w-3.5", spin && "animate-spin")} aria-hidden="true" />
       {label}
     </span>
   );

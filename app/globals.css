@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@import "flowbite-react/plugin/tailwindcss";
-@source "../.flowbite-react/class-list.json";
 /* Streamdown renders assistant markdown with Tailwind utility classes; this lets v4 generate them. */
 @source "../node_modules/streamdown/dist/*.js";
 
@@ -37,6 +35,19 @@ body {
   outline: 2px solid #10b981;
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Shared Mapbox popup chrome so the hover cards on the dashboard and Places maps read identically
+   (rounded, soft shadow, hairline border). The markup inside comes from popupCard() in
+   lib/map/config.ts. */
+.mapboxgl-popup-content {
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 8px 10px;
+}
+.mapboxgl-popup-close-button {
+  display: none;
 }
 
 /* Honour a reduced-motion preference: the dashboard has slide-over drawers, sidebar collapse,
