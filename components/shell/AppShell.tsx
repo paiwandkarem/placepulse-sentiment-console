@@ -16,7 +16,7 @@ type NavItem = { label: string; icon: ComponentType<{ className?: string }>; hre
 const NAV: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "AI assistant", icon: Bot, href: "/assistant" },
-  { label: "Briefs", icon: FileText, soon: true },
+  { label: "Briefs", icon: FileText, href: "/briefs" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
