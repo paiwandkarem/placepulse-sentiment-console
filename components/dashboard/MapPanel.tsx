@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { HiLocationMarker, HiX } from "react-icons/hi";
+import { MapPin, X } from "lucide-react";
 import type { ExpressionSpecification } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -173,7 +173,7 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
     <div className="flex h-full flex-col p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800">
-          <HiLocationMarker className="text-amber-500" size={18} />
+          <MapPin className="h-[18px] w-[18px] text-emerald-600" aria-hidden="true" />
           {selected}
         </div>
         <button
@@ -182,7 +182,7 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
           aria-label="Close map"
           onClick={() => setParam((next) => next.delete("map"))}
         >
-          <HiX size={18} />
+          <X className="h-[18px] w-[18px]" aria-hidden="true" />
         </button>
       </div>
       <p className="mb-2 px-1 text-xs text-gray-500">
@@ -199,7 +199,7 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
         )}
         {status === "ready" && hoverName && (
           <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-lg bg-white/95 px-3 py-1.5 text-sm font-semibold text-gray-800 shadow-md ring-1 ring-gray-200">
-            <HiLocationMarker className="text-emerald-600" size={16} />
+            <MapPin className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             {hoverName}
           </div>
         )}

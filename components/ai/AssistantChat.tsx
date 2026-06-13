@@ -95,7 +95,7 @@ export function AssistantChat({ className }: { className?: string }) {
             message.role === "user" ? (
               // User turns are short prompts: a right-aligned bubble, plain text.
               <div key={message.id} className="flex justify-end">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-950 px-3.5 py-2 text-sm leading-relaxed text-white">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-xl bg-gray-900 px-3.5 py-2 text-sm leading-relaxed text-white">
                   {message.parts.map((part) => (part.type === "text" ? part.text : "")).join("")}
                 </div>
               </div>
@@ -156,7 +156,7 @@ export function AssistantChat({ className }: { className?: string }) {
               type="submit"
               disabled={!input.trim()}
               aria-label="Send message"
-              className="rounded-lg bg-zinc-950 p-1.5 text-white disabled:opacity-40"
+              className="rounded-lg bg-gray-900 p-1.5 text-white transition-colors hover:bg-gray-800 disabled:opacity-40"
             >
               <ArrowUp className="h-4 w-4" />
             </button>

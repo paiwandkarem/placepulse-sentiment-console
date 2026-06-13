@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { HiX } from "react-icons/hi";
+import { X } from "lucide-react";
 import dayjs from "dayjs";
 import type { ReviewEvidence, ReviewSentiment, TopReviewGroups } from "@/lib/types";
 
@@ -178,7 +178,7 @@ export function SentimentReviewsSheet({
             aria-label="Close reviews"
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >
-            <HiX className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

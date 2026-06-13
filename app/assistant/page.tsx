@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AssistantChat } from "@/components/ai/AssistantChat";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const metadata: Metadata = {
   title: "Assistant | PlacePulse",
@@ -13,11 +14,10 @@ export default function AssistantPage() {
   return (
     <div className="flex h-dvh flex-col">
       <header className="border-b border-gray-200 bg-white px-4 py-4 md:px-8">
-        <h1 className="text-2xl font-extrabold text-gray-900">Assistant</h1>
-        <p className="mt-0.5 text-sm font-semibold text-gray-600">
-          Ask about Queensland suburb sentiment, the themes behind it, or specific places and their
-          reviews. Every answer is read from the data.
-        </p>
+        <PageHeader
+          title="Assistant"
+          subtitle="Ask about Queensland suburb sentiment, the themes behind it, or specific places and their reviews. Every answer is read from the data."
+        />
       </header>
       <div className="mx-auto flex w-full min-h-0 max-w-3xl flex-1 flex-col">
         <AssistantChat className="flex-1" />

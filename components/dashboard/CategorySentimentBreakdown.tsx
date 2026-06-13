@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { HiArrowSmDown, HiArrowSmUp } from "react-icons/hi";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { aggTypeForCategory } from "@/lib/filters";
 import { cn } from "@/lib/ui/sentiment";
 import type { CategorySentiment } from "@/lib/types";
@@ -30,10 +30,10 @@ function YoyDelta({ delta }: { delta: number }) {
     return <span className="text-[11px] tabular-nums text-gray-400">flat</span>;
   }
   const up = delta > 0;
-  const Icon = up ? HiArrowSmUp : HiArrowSmDown;
+  const Icon = up ? ArrowUp : ArrowDown;
   return (
     <span className={cn("inline-flex items-center justify-end gap-0.5 text-[11px] font-semibold tabular-nums", up ? "text-emerald-600" : "text-rose-600")}>
-      <Icon className="h-3 w-3" />
+      <Icon className="h-3 w-3" aria-hidden="true" />
       {abs.toFixed(1)}
     </span>
   );
@@ -102,7 +102,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
         No category breakdown for {areaLabel}.
       </div>
     );
@@ -111,7 +111,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
   const COLS = "minmax(120px, 180px) 1fr 3rem 6.5rem 3rem";
 
   return (
-    <div className={cn("rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-opacity", isPending && "opacity-60")}>
+    <div className={cn("rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-opacity", isPending && "opacity-60")}>
       <div className="mb-3 flex items-center justify-end gap-1.5">
         <span className="mr-1 text-xs font-medium text-gray-400">Sort by</span>
         <SortButton label="Sentiment" active={sortKey === "sentiment"} dir={sortDir} onClick={() => toggleSort("sentiment")} />

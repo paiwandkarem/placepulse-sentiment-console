@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { HiOutlineThumbDown, HiOutlineThumbUp } from "react-icons/hi";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 import type { SentimentRecord } from "@/lib/types";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -58,14 +58,14 @@ export function SentimentLabelDistribution({ record }: { record: SentimentRecord
     <div className="flex h-[340px] flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm font-sans">
       <div className="mb-2 flex items-center gap-5 px-1">
         <div className="inline-flex items-baseline gap-1.5">
-          <HiOutlineThumbUp className="h-5 w-5 self-center text-emerald-500" />
+          <ThumbsUp className="h-5 w-5 self-center text-emerald-500" aria-hidden="true" />
           <span className="text-2xl font-extrabold tracking-tight tabular-nums text-gray-900">
             {record.positivePct.toFixed(0)}%
           </span>
           <span className="text-xs text-gray-500">positive</span>
         </div>
         <div className="inline-flex items-baseline gap-1.5">
-          <HiOutlineThumbDown className="h-5 w-5 self-center text-rose-500" />
+          <ThumbsDown className="h-5 w-5 self-center text-rose-500" aria-hidden="true" />
           <span className="text-2xl font-extrabold tracking-tight tabular-nums text-gray-900">
             {record.negativePct.toFixed(0)}%
           </span>
