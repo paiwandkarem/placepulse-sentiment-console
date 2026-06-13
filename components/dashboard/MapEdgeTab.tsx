@@ -7,7 +7,7 @@ import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 // Persistent vertical handle on the right edge that opens and closes the map panel (a second
 // affordance alongside the filter-bar map toggle and the panel's own close button). It stays
 // visible while the panel is open and slides to the panel's edge, with the chevron flipping to
-// signal open vs close, mirroring the in-house edge toggle. The accessible name lives in
+// signal open vs close. The accessible name lives in
 // aria-label and title.
 export function MapEdgeTab({ mapOpen }: { mapOpen: boolean }) {
   const router = useRouter();

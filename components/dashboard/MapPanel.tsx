@@ -6,7 +6,7 @@ import { HiLocationMarker, HiX } from "react-icons/hi";
 import type { ExpressionSpecification } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// Slide-over map used to select which suburb the dashboard shows. Following the in-house map, the
+// Slide-over map used to select which suburb the dashboard shows. The
 // whole national suburb set is one static, near-full-detail GeoJSON loaded once into a single
 // source (built by scripts/build-suburb-boundaries.mjs), so every suburb is present with no
 // streaming and no holes. Hover and selection are driven by mapbox feature-state, so the fill
@@ -15,7 +15,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 // in the effect (it needs `window`).
 
 // The boundary file is a static asset by default; point this env at a CDN URL to serve it from
-// object storage instead (as the in-house map does).
+// object storage instead.
 const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL || "/qld-suburbs.geojson";
 
 // Green coverage, a deeper green on hover, purple when selected. Driven entirely by
