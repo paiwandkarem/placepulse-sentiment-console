@@ -7,6 +7,7 @@ import { FaMapMarkedAlt } from "react-icons/fa";
 import { aggTypeForCategory } from "@/lib/filters";
 import { cn } from "@/lib/ui/sentiment";
 import { Spinner } from "@/components/ui/Spinner";
+import { useMapDrawer } from "./MapDrawerContext";
 import type { FilterCatalogue, RequiredSentimentFilters } from "@/lib/types";
 
 // "Overall" is the no-category view (the suburb-level monthly aggregate). It sits at the top of
@@ -21,15 +22,15 @@ const OVERALL = "Overall";
 export function FilterBar({
   catalogue,
   selected,
-  mapOpen,
 }: {
   catalogue: FilterCatalogue;
   selected: RequiredSentimentFilters;
-  mapOpen: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  // Open/close is instant client state (see MapDrawerContext); only suburb and category navigate.
+  const { open: mapOpen, toggle: toggleMap } = useMapDrawer();
 
   // Each filter change rewrites the URL and the server re-renders the dashboard. Wrapping the
   // navigation in a transition keeps the current view interactive and gives us isPending, which
@@ -54,13 +55,6 @@ export function FilterBar({
       next.set("aggType", aggTypeForCategory(category));
       if (category) next.set("category", category);
       else next.delete("category");
-    });
-  }
-
-  function toggleMap() {
-    navigate((next) => {
-      if (mapOpen) next.delete("map");
-      else next.set("map", "1");
     });
   }
 

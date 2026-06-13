@@ -13,6 +13,8 @@ import { WordCloudPanel } from "@/components/dashboard/WordCloudPanel";
 import { StarRatingDistribution } from "@/components/dashboard/StarRatingDistribution";
 import { SentimentLabelDistribution } from "@/components/dashboard/SentimentLabelDistribution";
 import { MapEdgeTab } from "@/components/dashboard/MapEdgeTab";
+import { MapDrawer } from "@/components/dashboard/MapDrawer";
+import { MapDrawerProvider } from "@/components/dashboard/MapDrawerContext";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -23,10 +25,6 @@ import {
 import { sentimentFilterSchema } from "@/lib/validation/sentiment";
 
 export const revalidate = 300;
-
-// The map panel pulls in mapbox-gl and its CSS; code-split it so it only loads when a user opens
-// the map, keeping the default dashboard payload lean for the LCP path.
-const MapPanel = dynamic(() => import("@/components/dashboard/MapPanel").then((m) => m.MapPanel));
 
 // The docked copilot is code-split so the AI SDK and chat UI stay out of the dashboard's first load.
 const AssistantDock = dynamic(() => import("@/components/ai/AssistantDock").then((m) => m.AssistantDock));
@@ -48,7 +46,6 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 
 export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
-  const mapOpen = first(params.map) === "1";
   const filters = sentimentFilterSchema.parse({
     aggType: first(params.aggType),
     areaName: first(params.areaName),
@@ -74,12 +71,12 @@ export default async function Home({ searchParams }: PageProps) {
   const latestMonth = context ? dayjs(context.filters.date).format("MMMM YYYY") : "";
 
   return (
-    <>
+    <MapDrawerProvider>
       {catalogue && selected && (
         <div className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
           <div className="px-4 py-3 md:px-8">
             <Suspense fallback={<Skeleton className="h-12 w-full" />}>
-              <FilterBar catalogue={catalogue} selected={selected} mapOpen={mapOpen} />
+              <FilterBar catalogue={catalogue} selected={selected} />
             </Suspense>
           </div>
         </div>
@@ -221,20 +218,14 @@ export default async function Home({ searchParams }: PageProps) {
       </div>
 
       {/* Right-edge tab to open the map (in addition to the filter-bar toggle) */}
-      <MapEdgeTab mapOpen={mapOpen} />
+      <MapEdgeTab />
 
-      {/* Map slide-over drawer */}
-      <aside
-        className={`fixed inset-y-0 right-0 z-50 w-full transform bg-gray-50 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-[420px] ${
-          mapOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
-        }`}
-      >
-        {mapOpen && selected && <MapPanel suburbs={catalogue?.areaNames ?? []} selected={selected.areaName} />}
-      </aside>
+      {/* Map slide-over drawer: opens instantly on client state, map loads inside it */}
+      <MapDrawer suburbs={catalogue?.areaNames ?? []} selected={selected?.areaName ?? null} />
 
       {/* Docked copilot: the assistant, mounted on the dashboard */}
       <AssistantDock />
-    </>
+    </MapDrawerProvider>
   );
 }
 
