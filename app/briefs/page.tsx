@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { listAvailableFilters } from "@/lib/services/sentimentService";
 import { listBriefJobs } from "@/lib/briefs/repository";
 import { BriefsView } from "@/components/briefs/BriefsView";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const metadata: Metadata = {
   title: "Briefs | PlacePulse",
@@ -17,13 +18,12 @@ export default async function BriefsPage() {
 
   return (
     <div className="px-4 pb-16 pt-6 md:px-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900">Briefs</h1>
-        <p className="mt-1 text-sm font-semibold text-gray-600">
-          Generate an executive PDF brief for a suburb. The figures are drawn from the data; the
-          summary, findings and recommendations are written from those figures.
-        </p>
-      </header>
+      <div className="mb-6">
+        <PageHeader
+          title="Briefs"
+          subtitle="Generate an executive PDF brief for a suburb. The figures are drawn from the data; the summary, findings and recommendations are written from those figures."
+        />
+      </div>
 
       <BriefsView
         areaNames={catalogue.areaNames}

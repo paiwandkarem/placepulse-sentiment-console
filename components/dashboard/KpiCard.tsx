@@ -1,7 +1,7 @@
 "use client";
 
 import { Tooltip } from "flowbite-react";
-import { HiArrowDown, HiArrowUp, HiOutlineCalendar } from "react-icons/hi";
+import { ArrowDown, ArrowUp, Calendar } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 
 type Metric = "number" | "percent";
@@ -30,10 +30,10 @@ export function KpiCard({
   const hasChange = changePercent != null && !Number.isNaN(changePercent) && Math.abs(changePercent) >= 0.05;
   const isUp = (changePercent ?? 0) > 0;
   const isGood = changeDirection === "lower_better" ? !isUp : isUp;
-  const ChangeIcon = isUp ? HiArrowUp : HiArrowDown;
+  const ChangeIcon = isUp ? ArrowUp : ArrowDown;
 
   return (
-    <div className="flex h-full flex-col justify-between rounded-lg bg-white p-6 shadow">
+    <div className="flex h-full flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
         {hoverText ? (
           <Tooltip content={hoverText} animation="duration-200">
@@ -54,10 +54,10 @@ export function KpiCard({
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold tabular-nums",
-              isGood ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
+              isGood ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700",
             )}
           >
-            <ChangeIcon className="h-3.5 w-3.5" />
+            <ChangeIcon className="h-3.5 w-3.5" aria-hidden="true" />
             {Math.abs(changePercent as number).toFixed(2)}%
           </span>
         ) : (
@@ -66,7 +66,7 @@ export function KpiCard({
           </span>
         )}
         <span className="inline-flex items-center gap-1 text-gray-500">
-          <HiOutlineCalendar className="h-4 w-4" />
+          <Calendar className="h-4 w-4" aria-hidden="true" />
           Last year{previousValue != null ? ` · ${format(previousValue, metric, unit)}` : ""}
         </span>
       </div>

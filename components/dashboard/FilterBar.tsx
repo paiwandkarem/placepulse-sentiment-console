@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Dropdown, DropdownItem, TextInput } from "flowbite-react";
-import { FaMapMarkedAlt } from "react-icons/fa";
+import { Map } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { aggTypeForCategory } from "@/lib/filters";
 import { cn } from "@/lib/ui/sentiment";
@@ -84,7 +84,7 @@ export function FilterBar({
           title={mapOpen ? "Close map panel" : "Open map panel"}
           onClick={toggleMap}
         >
-          <FaMapMarkedAlt size={16} />
+          <Map className="h-4 w-4" aria-hidden="true" />
         </button>
 
         <Field label="Category">

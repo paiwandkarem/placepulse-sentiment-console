@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { HiStar } from "react-icons/hi";
+import { Star } from "lucide-react";
 import type { SentimentRecord } from "@/lib/types";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -57,7 +57,7 @@ export function StarRatingDistribution({ record }: { record: SentimentRecord }) 
     <div className="flex h-[340px] flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm font-sans">
       <div className="mb-2 flex items-center justify-between px-1">
         <div className="inline-flex items-baseline gap-1.5">
-          <HiStar className="h-5 w-5 self-center text-amber-400" />
+          <Star className="h-5 w-5 self-center fill-amber-400 text-amber-400" aria-hidden="true" />
           <span className="text-2xl font-extrabold tracking-tight tabular-nums text-gray-900">
             {record.avgRating.toFixed(2)}
           </span>
