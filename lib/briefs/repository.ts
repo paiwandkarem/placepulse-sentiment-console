@@ -77,6 +77,12 @@ export async function listBriefJobs(limit = 20): Promise<BriefJob[]> {
   return rows.map(toBriefJob);
 }
 
+// Delete a brief and return its stored PDF URL (if any) so the caller can remove the Blob too.
+export async function deleteBriefJob(id: string): Promise<string | null> {
+  const rows = (await sql`delete from brief_jobs where id = ${id} returning pdf_blob_url`) as DbRow[];
+  return (rows[0]?.pdf_blob_url as string | null) ?? null;
+}
+
 export async function getBriefJob(id: string): Promise<BriefJob | null> {
   const rows = (await sql`
     select id, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
