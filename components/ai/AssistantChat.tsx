@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { track } from "@vercel/analytics";
 import { ArrowUp, Square } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
@@ -52,6 +53,7 @@ export function AssistantChat({ className }: { className?: string }) {
         if (!tool.toolCallId || appliedFilterRef.current.has(tool.toolCallId)) continue;
         if (output?.applied && output.url) {
           appliedFilterRef.current.add(tool.toolCallId);
+          track("assistant_drove_dashboard");
           router.replace(output.url);
         }
       }
@@ -61,6 +63,7 @@ export function AssistantChat({ className }: { className?: string }) {
   function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+    track("assistant_message");
     sendMessage({ text: trimmed });
     setInput("");
   }

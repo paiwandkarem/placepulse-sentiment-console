@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
+import { humaniseTheme } from "@/lib/sentiment/themeBuckets";
 
 // Data access for the Queensland place-level tables loaded from the POI export. Mirrors the
 // sentiment repository's contract: this is the only place that talks SQL to the poi_* tables,
@@ -127,7 +128,7 @@ export async function placeThemes(placeId: string, limit = 10): Promise<PoiPlace
     [placeId, clamp(limit, 1, 25)],
   )) as DbRow[];
   return rows.map((row) => ({
-    theme: String(row.theme ?? ""),
+    theme: humaniseTheme(String(row.theme ?? "")),
     reviewCount: toNumber(row.review_count),
     avgSentiment100: toSentiment100(row.avg_sentiment_score),
     positiveCount: toNumber(row.positive_count),
@@ -202,4 +203,207 @@ export async function reviewEvidence(opts: {
     placeId: String(row.place_id ?? ""),
     placeName: String(row.place_name ?? ""),
   }));
+}
+
+// ---- Places explorer (P1): directory search and place profile data access ----
+
+export type PlaceSearchResult = { places: PoiPlace[]; total: number; page: number; pageSize: number };
+
+// Paginated directory search over open QLD places. Name match, suburb and category are optional and
+// combine. Name search uses ilike, which scans rather than using an index, so callers should usually
+// narrow by suburb or category first; the page size is capped to keep each request bounded.
+export async function searchPlaces(opts: {
+  query?: string;
+  suburb?: string;
+  category?: string;
+  sort?: "reviews" | "rating";
+  page?: number;
+  pageSize?: number;
+}): Promise<PlaceSearchResult> {
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const pageSize = clamp(opts.pageSize ?? 24, 1, 60);
+  const offset = (page - 1) * pageSize;
+
+  const where: string[] = ["coalesce(p.permanently_closed, false) = false"];
+  const params: unknown[] = [];
+  if (opts.query && opts.query.trim().length >= 2) {
+    params.push(`%${opts.query.trim()}%`);
+    where.push(`p.name ilike $${params.length}`);
+  }
+  if (opts.suburb) {
+    params.push(opts.suburb);
+    where.push(`lower(s.suburb_name) = lower($${params.length})`);
+  }
+  if (opts.category) {
+    params.push(opts.category);
+    where.push(`lower(p.category) = lower($${params.length})`);
+  }
+  const whereSql = where.join(" and ");
+  const order =
+    opts.sort === "rating"
+      ? "p.rating desc nulls last, p.reviews_count desc nulls last"
+      : "p.reviews_count desc nulls last";
+
+  const rows = (await sql.query(
+    `select p.place_id, p.name, p.category, s.suburb_name, p.address, p.rating, p.reviews_count, p.lat, p.lon
+       from poi_places p
+       join poi_place_suburb s on s.place_id = p.place_id
+      where ${whereSql}
+      order by ${order}
+      limit $${params.length + 1} offset $${params.length + 2}`,
+    [...params, pageSize, offset],
+  )) as DbRow[];
+
+  const countRows = (await sql.query(
+    `select count(*)::int as total
+       from poi_places p
+       join poi_place_suburb s on s.place_id = p.place_id
+      where ${whereSql}`,
+    params,
+  )) as DbRow[];
+
+  return { places: rows.map(mapPlace), total: toNumber(countRows[0]?.total), page, pageSize };
+}
+
+export type PlaceReview = { text: string; rating: number; sentiment: string; sentiment100: number; date?: string };
+export type PlaceReviewPage = { reviews: PlaceReview[]; total: number; page: number; pageSize: number };
+
+// One place's reviews, paginated and optionally filtered by sentiment, newest first.
+export async function placeReviews(
+  placeId: string,
+  opts: { page?: number; pageSize?: number; sentiment?: "positive" | "negative" | "neutral" } = {},
+): Promise<PlaceReviewPage> {
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const pageSize = clamp(opts.pageSize ?? 10, 1, 50);
+  const offset = (page - 1) * pageSize;
+
+  const where: string[] = ["r.place_id = $1", "length(trim(r.review_text)) >= 1"];
+  const params: unknown[] = [placeId];
+  if (opts.sentiment) {
+    params.push(opts.sentiment);
+    where.push(`sc.sentiment_label = $${params.length}`);
+  }
+  const whereSql = where.join(" and ");
+
+  const rows = (await sql.query(
+    `select r.review_text, r.rating, sc.sentiment_label, sc.sentiment_100, r.created_at
+       from poi_reviews r
+       join poi_review_scores sc on sc.review_id = r.review_id
+      where ${whereSql}
+      order by r.created_at desc nulls last
+      limit $${params.length + 1} offset $${params.length + 2}`,
+    [...params, pageSize, offset],
+  )) as DbRow[];
+
+  const countRows = (await sql.query(
+    `select count(*)::int as total
+       from poi_reviews r
+       join poi_review_scores sc on sc.review_id = r.review_id
+      where ${whereSql}`,
+    params,
+  )) as DbRow[];
+
+  return {
+    reviews: rows.map((row) => ({
+      text: String(row.review_text ?? "").trim(),
+      rating: toNumber(row.rating),
+      sentiment: String(row.sentiment_label ?? "neutral"),
+      sentiment100: toNumber(row.sentiment_100),
+      date: toDateString(row.created_at),
+    })),
+    total: toNumber(countRows[0]?.total),
+    page,
+    pageSize,
+  };
+}
+
+export type PlaceWordTerm = { term: string; mentions: number; sentiment: string };
+
+// A place's most mentioned terms, summed across its reviews and grouped by sentiment.
+export async function placeWordTerms(placeId: string, limit = 30): Promise<PlaceWordTerm[]> {
+  const rows = (await sql.query(
+    `select term, sentiment_label, sum(mentions)::int as mentions
+       from poi_word_terms
+      where place_id = $1 and term is not null
+      group by term, sentiment_label
+      order by mentions desc nulls last
+      limit $2`,
+    [placeId, clamp(limit, 1, 100)],
+  )) as DbRow[];
+  return rows.map((row) => ({
+    term: String(row.term ?? ""),
+    mentions: toNumber(row.mentions),
+    sentiment: String(row.sentiment_label ?? "neutral"),
+  }));
+}
+
+export type PlacePoint = {
+  placeId: string;
+  name: string;
+  category: string;
+  lat: number;
+  lon: number;
+  rating: number;
+  reviewsCount: number;
+};
+
+// Map points for the directory's filters: places with coordinates, capped, most reviewed first. The
+// cap keeps the payload to the client bounded; the map clusters them, so a few hundred reads well.
+export async function placePoints(
+  opts: { query?: string; suburb?: string; category?: string },
+  limit = 500,
+): Promise<PlacePoint[]> {
+  const where: string[] = [
+    "coalesce(p.permanently_closed, false) = false",
+    "p.lat is not null",
+    "p.lon is not null",
+  ];
+  const params: unknown[] = [];
+  if (opts.query && opts.query.trim().length >= 2) {
+    params.push(`%${opts.query.trim()}%`);
+    where.push(`p.name ilike $${params.length}`);
+  }
+  if (opts.suburb) {
+    params.push(opts.suburb);
+    where.push(`lower(s.suburb_name) = lower($${params.length})`);
+  }
+  if (opts.category) {
+    params.push(opts.category);
+    where.push(`lower(p.category) = lower($${params.length})`);
+  }
+  params.push(clamp(limit, 1, 1000));
+
+  const rows = (await sql.query(
+    `select p.place_id, p.name, p.category, p.lat, p.lon, p.rating, p.reviews_count
+       from poi_places p
+       join poi_place_suburb s on s.place_id = p.place_id
+      where ${where.join(" and ")}
+      order by p.reviews_count desc nulls last
+      limit $${params.length}`,
+    params,
+  )) as DbRow[];
+
+  return rows.map((row) => ({
+    placeId: String(row.place_id ?? ""),
+    name: String(row.name ?? ""),
+    category: String(row.category ?? ""),
+    lat: toNumber(row.lat),
+    lon: toNumber(row.lon),
+    rating: toNumber(row.rating),
+    reviewsCount: toNumber(row.reviews_count),
+  }));
+}
+
+// The most common place categories (by open-place count), for the directory's category filter.
+export async function listPlaceCategories(limit = 60): Promise<string[]> {
+  const rows = (await sql.query(
+    `select category, count(*)::int as n
+       from poi_places
+      where category is not null and coalesce(permanently_closed, false) = false
+      group by category
+      order by n desc
+      limit $1`,
+    [clamp(limit, 1, 200)],
+  )) as DbRow[];
+  return rows.map((row) => String(row.category ?? "")).filter(Boolean);
 }

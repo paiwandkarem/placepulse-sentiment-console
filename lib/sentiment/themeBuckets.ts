@@ -18,7 +18,9 @@ const GAP_MIN = 15;
 const MIXED_SIDE_MIN = 20;
 const MIXED_OPINION_MIN = 50;
 
-function humanise(theme: string): string {
+// Turn a raw theme key like "guide_quality" into a readable label ("Guide Quality"). Shared so the
+// dashboard, the brief and the place pages all format themes the same way.
+export function humaniseTheme(theme: string): string {
   return theme.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -45,7 +47,7 @@ function attachYoy(themes: ThemeSentiment[], lastYear: ThemeSentiment[] | null):
   return themes.map((t) => {
     const base: EnrichedTheme = {
       ...t,
-      label: humanise(t.theme),
+      label: humaniseTheme(t.theme),
       uiBucket: classifyTheme(t.positivePct, t.negativePct),
       uiRankInBucket: null,
       hasYoy: false,
