@@ -1,24 +1,16 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { FaMapMarkedAlt } from "react-icons/fa";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { useMapDrawer } from "./MapDrawerContext";
 
 // Persistent vertical handle on the right edge that opens and closes the map panel (a second
 // affordance alongside the filter-bar map toggle and the panel's own close button). It stays
 // visible while the panel is open and slides to the panel's edge, with the chevron flipping to
 // signal open vs close. The accessible name lives in
 // aria-label and title.
-export function MapEdgeTab({ mapOpen }: { mapOpen: boolean }) {
-  const router = useRouter();
-  const params = useSearchParams();
-
-  function toggle() {
-    const next = new URLSearchParams(params.toString());
-    if (mapOpen) next.delete("map");
-    else next.set("map", "1");
-    router.replace(`/?${next.toString()}`, { scroll: false });
-  }
+export function MapEdgeTab() {
+  const { open: mapOpen, toggle } = useMapDrawer();
 
   return (
     <button
