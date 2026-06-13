@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ExternalLink, FileText, Loader2, Trash2, TriangleAlert } from "lucide-react";
+import { track } from "@vercel/analytics";
 import { cn } from "@/lib/ui/sentiment";
 import type { BriefJob } from "@/lib/briefs/repository";
 import type { BriefContent } from "@/lib/briefs/schema";
@@ -55,6 +56,7 @@ export function BriefsView({
 
   // Remove a brief and its stored PDF. Optimistic: drop it from the list, then tell the server.
   const remove = useCallback(async (id: string) => {
+    track("brief_deleted");
     setBriefs((previous) => previous.filter((brief) => brief.id !== id));
     await fetch(`/api/briefs/${id}`, { method: "DELETE" }).catch(() => undefined);
   }, []);
@@ -78,6 +80,7 @@ export function BriefsView({
         setError("Could not start the brief. Try again.");
         return;
       }
+      track("brief_generated", { suburb: trimmed, category });
       setArea("");
       setCategory(OVERALL);
       await refresh();
@@ -188,6 +191,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               href={brief.pdfBlobUrl}
               target="_blank"
               rel="noreferrer"
+              onClick={() => track("brief_viewed")}
               className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               <ExternalLink className="h-3.5 w-3.5" />

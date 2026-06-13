@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { track } from "@vercel/analytics";
 
 // Open/close state for the map drawer. This is ephemeral UI state, not a shareable view, so it
 // lives in React rather than the URL: toggling is instant and never triggers a server round-trip,
@@ -26,7 +27,10 @@ export function MapDrawerProvider({ children }: { children: ReactNode }) {
   // mount on first open and stay mounted afterwards.
   const setOpen = useCallback((next: boolean) => {
     setOpenState(next);
-    if (next) setHasOpened(true);
+    if (next) {
+      setHasOpened(true);
+      track("map_opened");
+    }
   }, []);
 
   const toggle = useCallback(() => setOpen(!open), [open, setOpen]);

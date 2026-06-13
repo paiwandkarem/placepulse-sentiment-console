@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Dropdown, DropdownItem, TextInput } from "flowbite-react";
 import { FaMapMarkedAlt } from "react-icons/fa";
+import { track } from "@vercel/analytics";
 import { aggTypeForCategory } from "@/lib/filters";
 import { cn } from "@/lib/ui/sentiment";
 import { Spinner } from "@/components/ui/Spinner";
@@ -51,6 +52,7 @@ export function FilterBar({
   // the per-category aggregate.
   function selectCategory(value: string) {
     const category = value === OVERALL ? undefined : value;
+    track("dashboard_filter_changed", { kind: "category", value });
     navigate((next) => {
       next.set("aggType", aggTypeForCategory(category));
       if (category) next.set("category", category);
@@ -65,7 +67,10 @@ export function FilterBar({
           <SearchableDropdown
             label={selected.areaName}
             options={catalogue.areaNames}
-            onSelect={(value) => setParams({ areaName: value })}
+            onSelect={(value) => {
+              track("dashboard_filter_changed", { kind: "suburb", value });
+              setParams({ areaName: value });
+            }}
           />
         </Field>
 
