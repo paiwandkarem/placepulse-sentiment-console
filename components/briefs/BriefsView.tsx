@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, FileText, Loader2, TriangleAlert } from "lucide-react";
+import { CheckCircle2, ExternalLink, FileText, Loader2, Trash2, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 import type { BriefJob } from "@/lib/briefs/repository";
 import type { BriefContent } from "@/lib/briefs/schema";
@@ -52,6 +52,12 @@ export function BriefsView({
     const timer = setInterval(refresh, 2500);
     return () => clearInterval(timer);
   }, [briefs, refresh]);
+
+  // Remove a brief and its stored PDF. Optimistic: drop it from the list, then tell the server.
+  const remove = useCallback(async (id: string) => {
+    setBriefs((previous) => previous.filter((brief) => brief.id !== id));
+    await fetch(`/api/briefs/${id}`, { method: "DELETE" }).catch(() => undefined);
+  }, []);
 
   async function generate(event: React.FormEvent) {
     event.preventDefault();
@@ -133,7 +139,7 @@ export function BriefsView({
       ) : (
         <ul className="space-y-4">
           {briefs.map((brief) => (
-            <BriefCard key={brief.id} brief={brief} />
+            <BriefCard key={brief.id} brief={brief} onDelete={remove} />
           ))}
         </ul>
       )}
@@ -141,7 +147,7 @@ export function BriefsView({
   );
 }
 
-function BriefCard({ brief }: { brief: BriefJob }) {
+function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string) => void }) {
   const content = parseContent(brief.content);
 
   return (
@@ -151,7 +157,20 @@ function BriefCard({ brief }: { brief: BriefJob }) {
           <h3 className="text-sm font-semibold text-gray-900">{brief.title}</h3>
           <p className="mt-0.5 text-xs text-gray-500">{new Date(brief.createdAt).toLocaleString()}</p>
         </div>
-        <StatusPill status={brief.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusPill status={brief.status} />
+          {brief.status !== "running" && (
+            <button
+              type="button"
+              onClick={() => onDelete(brief.id)}
+              aria-label="Delete brief"
+              title="Delete brief"
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {brief.status === "running" && (
