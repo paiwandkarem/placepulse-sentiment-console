@@ -28,6 +28,9 @@ export const revalidate = 300;
 // the map, keeping the default dashboard payload lean for the LCP path.
 const MapPanel = dynamic(() => import("@/components/dashboard/MapPanel").then((m) => m.MapPanel));
 
+// The docked copilot is code-split so the AI SDK and chat UI stay out of the dashboard's first load.
+const AssistantDock = dynamic(() => import("@/components/ai/AssistantDock").then((m) => m.AssistantDock));
+
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -228,6 +231,9 @@ export default async function Home({ searchParams }: PageProps) {
       >
         {mapOpen && selected && <MapPanel suburbs={catalogue?.areaNames ?? []} selected={selected.areaName} />}
       </aside>
+
+      {/* Docked copilot: the assistant, mounted on the dashboard */}
+      <AssistantDock />
     </>
   );
 }
