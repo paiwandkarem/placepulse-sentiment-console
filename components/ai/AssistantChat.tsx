@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ArrowUp, Square } from "lucide-react";
@@ -28,12 +29,34 @@ export function AssistantChat({ className }: { className?: string }) {
   const { messages, sendMessage, status, error, stop } = useChat({ transport });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  // Tool calls already applied to the dashboard, so a re-render does not navigate again.
+  const appliedFilterRef = useRef<Set<string>>(new Set());
   const busy = status === "submitted" || status === "streaming";
 
   // Keep the latest content in view as it streams in.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, status]);
+
+  // When the model calls setDashboardFilter and it resolves, apply the action by navigating the URL
+  // filter contract. From the dashboard dock this updates the page in place; from the full-screen
+  // page it takes the user to the dashboard showing what they asked for.
+  useEffect(() => {
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      for (const part of message.parts) {
+        const tool = part as { type: string; state?: string; toolCallId?: string; output?: unknown };
+        if (tool.type !== "tool-setDashboardFilter" || tool.state !== "output-available") continue;
+        const output = tool.output as { applied?: boolean; url?: string } | undefined;
+        if (!tool.toolCallId || appliedFilterRef.current.has(tool.toolCallId)) continue;
+        if (output?.applied && output.url) {
+          appliedFilterRef.current.add(tool.toolCallId);
+          router.replace(output.url);
+        }
+      }
+    }
+  }, [messages, router]);
 
   function send(text: string) {
     const trimmed = text.trim();
