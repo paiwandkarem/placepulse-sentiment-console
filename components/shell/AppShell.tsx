@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bot, ChevronLeft, ChevronRight, FileText, Gauge, HelpCircle, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 
@@ -10,16 +11,17 @@ import { cn } from "@/lib/ui/sentiment";
 // deliberately small, one entry per product area. Collapse state persists across visits; below
 // md the sidebar is hidden and content runs full width.
 
-type NavItem = { label: string; icon: ComponentType<{ className?: string }>; active?: boolean; soon?: boolean };
+type NavItem = { label: string; icon: ComponentType<{ className?: string }>; href?: string; soon?: boolean };
 
 const NAV: NavItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, active: true },
-  { label: "AI assistant", icon: Bot, soon: true },
+  { label: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { label: "AI assistant", icon: Bot, href: "/assistant" },
   { label: "Briefs", icon: FileText, soon: true },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const pathname = usePathname();
 
   // Read the persisted preference after mount (not in a lazy initialiser) so server and client
   // first render agree, which avoids a hydration mismatch on the sidebar.
@@ -69,14 +71,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
               );
             }
+            const href = item.href ?? "/";
+            const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
                 key={item.label}
-                href="/"
-                aria-current={item.active ? "page" : undefined}
+                href={href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-                  item.active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
