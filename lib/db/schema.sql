@@ -1,10 +1,14 @@
-create table if not exists sentiment_area_category_month (
+create table if not exists sentiment_suburbs (
   id bigserial primary key,
-  query_key text not null unique,
+  -- query_key identifies the agg_type + area, but NOT the category. One suburb/period has a
+  -- row per category under the same key, so it is intentionally not unique on its own.
+  query_key text not null,
   agg_type text not null,
   date date not null,
   area_name text not null,
-  category text not null,
+  -- Nullable: suburb-level overall rows (the *_suburb agg types) carry no category, so the
+  -- repository matches with "category is not distinct from ?" to treat NULL as a value.
+  category text,
   poi_count integer not null default 0,
   reviewed_poi_count integer not null default 0,
   total_reviews integer not null default 0,
@@ -47,10 +51,35 @@ create table if not exists sentiment_area_category_month (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists idx_sentiment_area_category_date on sentiment_area_category_month (area_name, category, date desc);
-create index if not exists idx_sentiment_category_date on sentiment_area_category_month (category, date desc);
-create index if not exists idx_sentiment_area_date on sentiment_area_category_month (area_name, date desc);
-create index if not exists idx_sentiment_agg_date on sentiment_area_category_month (agg_type, date desc);
+-- The natural grain of a row. Serves getRecord (exact match on all four columns), getTrend and
+-- getThemes (prefix match on agg_type/area_name/category), so those reads are index lookups
+-- rather than scans. Kept non-unique: at full national scale the loaded data is not guaranteed
+-- one row per grain, and a unique build would fail. In production this is created CONCURRENTLY
+-- so it does not block an in-flight import.
+create index if not exists ix_ss_grain
+  on sentiment_suburbs (agg_type, area_name, category, date);
+
+-- Single-column indexes backing the filter catalogue. listFilters reads the distinct values of
+-- each dimension with a recursive "loose index scan" (jump to the next value greater than the
+-- last), which costs one index descent per option instead of a full scan of every row. At a few
+-- million rows that is the difference between ~250 ms and ~10 s on a cold page load. agg_type is
+-- already covered by ix_ss_grain's leading column. Categories skip the suburb-level nulls.
+create index if not exists ix_ss_area on sentiment_suburbs (area_name);
+create index if not exists ix_ss_category on sentiment_suburbs (category) where category is not null;
+create index if not exists ix_ss_date on sentiment_suburbs (date);
+
+-- Backs getDefaultSlice: the opening view picks the most-reviewed overall (mthly_suburb) slice.
+-- Leading with agg_type lets that query be an index range seek returning the single top row, and
+-- the ordering (desc nulls last) must match the query exactly or the planner falls back to a sort.
+create index if not exists ix_ss_agg_reviews
+  on sentiment_suburbs (agg_type, total_reviews desc nulls last);
+
+-- Backs getCategoryBreakdown: every category's score for one suburb at one month, ordered by
+-- review volume. ix_ss_grain puts date after category, so it cannot serve this filter+sort; this
+-- composite leads (agg_type, area_name, date) and carries total_reviews so the rows come back
+-- pre-ordered. Partial on the per-category rows it actually reads.
+create index if not exists ix_ss_area_date_reviews
+  on sentiment_suburbs (agg_type, area_name, date, total_reviews desc nulls last) where category is not null;
 
 create table if not exists brief_jobs (
   id text primary key,

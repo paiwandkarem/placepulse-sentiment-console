@@ -5,7 +5,7 @@ import { comparisonSchema } from "@/lib/validation/sentiment";
 
 // Compares two areas for the same category and date. Unlike the other read routes, every
 // parameter is required, so this is the one endpoint where the request itself can be
-// malformed — hence the explicit 400 vs 404 split below.
+// malformed, hence the explicit 400 vs 404 split below.
 export const maxDuration = 30;
 
 export async function GET(request: Request) {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     date: searchParams.get("date"),
   });
 
-  // A partial or invalid request is a client error, not a server fault — report 400 with the
+  // A partial or invalid request is a client error, not a server fault, so report 400 with the
   // specific fields that failed rather than letting Zod throw into a 500.
   if (!parsed.success) {
     return Response.json(

@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editor
+.vscode/
+
+# flowbite-react generated output
+.flowbite-react/
+
+# suburb boundary GeoJSON: 5.4 MB, hosted on Vercel Blob, not committed
+# (NEXT_PUBLIC_SUBURB_GEOJSON_URL points at the Blob copy)
+public/qld-suburbs.geojson
+
+# internal working note, not part of the shipped repo
+docs/poi-copilot-teardown.md
