@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ArrowUp, Square } from "lucide-react";
+import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
 import { ToolCallView } from "./ToolCallView";
 
@@ -64,32 +65,31 @@ export function AssistantChat({ className }: { className?: string }) {
             </div>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
-            >
-              <div
-                className={cn(
-                  "max-w-[85%] space-y-2",
-                  message.role === "user"
-                    ? "rounded-2xl bg-zinc-950 px-3.5 py-2 text-sm text-white"
-                    : "text-sm text-gray-800",
-                )}
-              >
+          messages.map((message) =>
+            message.role === "user" ? (
+              // User turns are short prompts: a right-aligned bubble, plain text.
+              <div key={message.id} className="flex justify-end">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-950 px-3.5 py-2 text-sm leading-relaxed text-white">
+                  {message.parts.map((part) => (part.type === "text" ? part.text : "")).join("")}
+                </div>
+              </div>
+            ) : (
+              // Assistant turns run full width so markdown tables and lists have room. Text parts
+              // render through Streamdown (GFM tables, code, hardened, streaming-aware); tool parts
+              // render as the audit timeline.
+              <div key={message.id} className="space-y-2">
                 {message.parts.map((part, index) =>
                   part.type === "text" ? (
-                    <p key={index} className="whitespace-pre-wrap leading-relaxed">
+                    <Streamdown key={index} className="text-sm leading-relaxed text-gray-800">
                       {part.text}
-                    </p>
+                    </Streamdown>
                   ) : (
-                    // Renders the tool timeline for tool parts and nothing for the rest.
                     <ToolCallView key={index} part={part} />
                   ),
                 )}
               </div>
-            </div>
-          ))
+            ),
+          )
         )}
         {status === "submitted" && <p className="text-xs text-gray-400">Thinking...</p>}
         {error && <p className="text-xs text-rose-600">Something went wrong. Please try again.</p>}

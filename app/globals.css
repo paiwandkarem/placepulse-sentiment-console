@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "flowbite-react/plugin/tailwindcss";
 @source "../.flowbite-react/class-list.json";
+/* Streamdown renders assistant markdown with Tailwind utility classes; this lets v4 generate them. */
+@source "../node_modules/streamdown/dist/*.js";
 
 :root {
   --background: #ffffff;
