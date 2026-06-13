@@ -17,7 +17,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "PlacePulse | Sentiment Intelligence",
   description:
-    "Customer sentiment intelligence for Australian suburbs: themes, drivers and review evidence.",
+    "Customer sentiment intelligence for Queensland suburbs: themes, drivers and review evidence.",
 };
 
 export default function RootLayout({
