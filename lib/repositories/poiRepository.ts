@@ -30,6 +30,27 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+// Keep only well-formed http(s) URLs; the POI export occasionally holds blanks or stray values.
+function cleanUrl(value: unknown): string | null {
+  const text = typeof value === "string" ? value.trim() : "";
+  return /^https?:\/\//i.test(text) ? text : null;
+}
+
+// photos_and_videos is a JSON array of image URLs. Parse defensively (it can be empty or malformed),
+// drop anything that is not an http(s) URL or duplicates the main image, and cap the count so the
+// payload and the rendered strip stay bounded.
+function parsePhotos(raw: unknown, exclude: string | null, limit = 8): string[] {
+  if (typeof raw !== "string" || raw.trim().length < 5) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const urls = parsed.filter((entry): entry is string => typeof entry === "string" && /^https?:\/\//i.test(entry));
+    return [...new Set(urls)].filter((url) => url !== exclude).slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 export type PoiPlace = {
   placeId: string;
   name: string;
@@ -84,13 +105,18 @@ export type PoiPlaceDetail = PoiPlace & {
   description: string;
   isClaimed: boolean;
   permanentlyClosed: boolean;
+  mainImage: string | null;
+  photos: string[];
+  website: string | null;
+  googleMapsUrl: string | null;
 };
 
-// One place by its Google place_id, with the suburb joined in.
+// One place by its Google place_id, with the suburb joined in, including its imagery (main photo,
+// extra photos) and outbound links.
 export async function placeDetail(placeId: string): Promise<PoiPlaceDetail | null> {
   const rows = (await sql.query(
     `select p.place_id, p.name, p.category, s.suburb_name, p.address, p.rating, p.reviews_count, p.lat, p.lon,
-            p.description, p.is_claimed, p.permanently_closed
+            p.description, p.is_claimed, p.permanently_closed, p.main_image, p.photos_and_videos, p.open_website, p.url
        from poi_places p
        left join poi_place_suburb s on s.place_id = p.place_id
       where p.place_id = $1
@@ -99,11 +125,16 @@ export async function placeDetail(placeId: string): Promise<PoiPlaceDetail | nul
   )) as DbRow[];
   if (!rows.length) return null;
   const row = rows[0];
+  const mainImage = cleanUrl(row.main_image);
   return {
     ...mapPlace(row),
     description: String(row.description ?? ""),
     isClaimed: row.is_claimed === true,
     permanentlyClosed: row.permanently_closed === true,
+    mainImage,
+    photos: parsePhotos(row.photos_and_videos, mainImage),
+    website: cleanUrl(row.open_website),
+    googleMapsUrl: cleanUrl(row.url),
   };
 }
 
@@ -265,7 +296,15 @@ export async function searchPlaces(opts: {
   return { places: rows.map(mapPlace), total: toNumber(countRows[0]?.total), page, pageSize };
 }
 
-export type PlaceReview = { text: string; rating: number; sentiment: string; sentiment100: number; date?: string };
+export type PlaceReview = {
+  text: string;
+  rating: number;
+  sentiment: string;
+  sentiment100: number;
+  date?: string;
+  reviewerName?: string;
+  reviewerPhoto?: string;
+};
 export type PlaceReviewPage = { reviews: PlaceReview[]; total: number; page: number; pageSize: number };
 
 // One place's reviews, paginated and optionally filtered by sentiment, newest first.
@@ -286,7 +325,7 @@ export async function placeReviews(
   const whereSql = where.join(" and ");
 
   const rows = (await sql.query(
-    `select r.review_text, r.rating, sc.sentiment_label, sc.sentiment_100, r.created_at
+    `select r.review_text, r.rating, sc.sentiment_label, sc.sentiment_100, r.created_at, r.reviewer_name, r.reviewer_photo_url
        from poi_reviews r
        join poi_review_scores sc on sc.review_id = r.review_id
       where ${whereSql}
@@ -310,6 +349,8 @@ export async function placeReviews(
       sentiment: String(row.sentiment_label ?? "neutral"),
       sentiment100: toNumber(row.sentiment_100),
       date: toDateString(row.created_at),
+      reviewerName: row.reviewer_name ? String(row.reviewer_name) : undefined,
+      reviewerPhoto: cleanUrl(row.reviewer_photo_url) ?? undefined,
     })),
     total: toNumber(countRows[0]?.total),
     page,

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Map } from "lucide-react";
+import { Map } from "lucide-react";
 import { track } from "@vercel/analytics";
 import { aggTypeForCategory } from "@/lib/filters";
 import { cn } from "@/lib/ui/sentiment";
 import { Spinner } from "@/components/ui/Spinner";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { useMapDrawer } from "./MapDrawerContext";
 import type { FilterCatalogue, RequiredSentimentFilters } from "@/lib/types";
 
@@ -65,9 +66,10 @@ export function FilterBar({
       <div className="flex min-w-max flex-row items-center gap-5 whitespace-nowrap">
         <Field label="Suburb">
           <SearchableDropdown
-            label={selected.areaName}
+            value={selected.areaName}
             options={catalogue.areaNames}
             disabled={isPending}
+            placeholder="Search suburbs"
             onSelect={(value) => {
               track("dashboard_filter_changed", { kind: "suburb", value });
               setParams({ areaName: value });
@@ -91,9 +93,10 @@ export function FilterBar({
 
         <Field label="Category">
           <SearchableDropdown
-            label={selected.category ?? OVERALL}
+            value={selected.category ?? OVERALL}
             options={[OVERALL, ...catalogue.categories]}
             disabled={isPending}
+            placeholder="Search categories"
             onSelect={selectCategory}
           />
         </Field>
@@ -115,123 +118,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="text-xs font-semibold tracking-wide text-gray-700">{label}</label>
       {children}
     </div>
-  );
-}
-
-// A searchable single-select: a trigger button that opens a filtered, scrollable list with a search
-// box. The menu is positioned with fixed coordinates measured from the trigger, so the filter bar's
-// horizontal overflow can never clip it. Closes on outside pointer, Escape, scroll or resize.
-function SearchableDropdown({
-  label,
-  options,
-  onSelect,
-  disabled,
-}: {
-  label: string;
-  options: string[];
-  onSelect: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function openMenu() {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setCoords({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 224) });
-    setOpen(true);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    inputRef.current?.focus();
-    function onPointer(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    function onReposition() {
-      setOpen(false);
-    }
-    document.addEventListener("pointerdown", onPointer);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onReposition, true);
-    window.addEventListener("resize", onReposition);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onReposition, true);
-      window.removeEventListener("resize", onReposition);
-    };
-  }, [open]);
-
-  const filtered = options.filter((option) => option.toLowerCase().includes(query.toLowerCase())).slice(0, 200);
-
-  function choose(value: string) {
-    onSelect(value);
-    setOpen(false);
-    setQuery("");
-  }
-
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        type="button"
-        disabled={disabled}
-        onClick={() => (open ? setOpen(false) : openMenu())}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <span className="max-w-[11rem] truncate">{label || "Select"}</span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
-      </button>
-      {open && coords && (
-        <div
-          ref={panelRef}
-          style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
-          className="z-50 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
-        >
-          <div className="p-2">
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
-              aria-label="Search options"
-              className="h-8 w-full rounded-md border border-gray-200 px-2 text-sm text-gray-900 outline-none focus:border-gray-400"
-            />
-          </div>
-          <ul role="listbox" className="max-h-64 overflow-y-auto pb-1">
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-gray-400">No matches</li>
-            ) : (
-              filtered.map((option) => (
-                <li key={option}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={option === label}
-                    onClick={() => choose(option)}
-                    className={cn(
-                      "block w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100",
-                      option === label ? "font-semibold text-gray-900" : "text-gray-700",
-                    )}
-                  >
-                    {option}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-      )}
-    </>
   );
 }

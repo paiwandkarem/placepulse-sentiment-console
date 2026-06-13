@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getPlaceCategories } from "@/lib/services/placesService";
+import { listAvailableFilters } from "@/lib/services/sentimentService";
 import { PlacesExplorer } from "@/components/places/PlacesExplorer";
 import { Spinner } from "@/components/ui/Spinner";
 
@@ -13,7 +14,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function PlacesPage() {
-  const categories = await getPlaceCategories();
+  // POI categories drive the place filter; the suburb list is the shared catalogue used by every
+  // filter bar, so the suburb dropdown matches the dashboard and briefs.
+  const [categories, filters] = await Promise.all([getPlaceCategories(), listAvailableFilters()]);
 
   return (
     <Suspense
@@ -23,7 +26,7 @@ export default async function PlacesPage() {
         </div>
       }
     >
-      <PlacesExplorer categories={categories} />
+      <PlacesExplorer categories={categories} areaNames={filters.areaNames} />
     </Suspense>
   );
 }

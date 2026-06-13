@@ -133,6 +133,39 @@ Sequencing: B3 is the enabling refactor (do it first; it is low risk and unlocks
 B4 (comparison) is the highest-value follow-on and the one explicitly requested. B5 is
 optional polish once B4 proves the pattern.
 
+### Phase 6: rich visuals (proposed)
+
+The console is currently text and data-viz; it can be made far more vivid with real imagery
+and lightweight generated visuals, without hurting Core Web Vitals. The guiding principle is
+**real data over fabrication, and images over JavaScript**: business photos already exist in
+the POI data (`poi_ready.main_image`, `photos_and_videos`, reviewer photo URLs), and the
+Mapbox Static Images API (already used for briefs in `lib/briefs/map.ts`) renders a locator
+as a single lazy `<img>` with zero map bundle. Generated imagery is reserved for decoration,
+never for representing a real business.
+
+```
+surface            visual                              source                         CWV note
+place detail/cards business hero + photo thumbnails     poi_ready.main_image / photos  next/image: lazy, sized, AVIF
+assistant answers  place cards, suburb cards, mini map  tool data + Static Images API  generative UI; images lazy
+assistant answers  trend / split sparklines             tool data                      inline SVG, no chart lib
+briefs (optional)  decorative cover art                 AI image model (Gateway)       generated once, cached to Blob
+```
+
+| # | Commit | Scope |
+|---|--------|-------|
+| V1 | `feat(places): surface real business imagery` | Add `main_image` (and a few `photos_and_videos` thumbnails) to `PlaceProfile` and the hover/insight cards via `next/image` with width/height (no CLS), lazy by default, and a graceful fallback tile on error. Add an `images.remotePatterns` allowlist in `next.config.ts` for the image host(s). Reviewer avatars (`reviewer_photo_url`) on review cards. |
+| V2 | `feat(map): shared static-map helper` | Generalise the briefs' Static Images API usage into `lib/map/staticMap.ts` (place pin or suburb boundary -> a cacheable PNG URL). A single lazy `<img>`, no mapbox-gl, edge-cacheable. Use it for a locator on place detail and in assistant cards. |
+| V3 | `feat(assistant): generative UI for tool results` | Map the assistant's `tool-<name>` result parts to rich components instead of plain text: a `SuburbCard` (KPIs + mini sentiment bar + V2 static map), a `PlaceCard` (image + rating + themes + map), and inline SVG sparklines for trend/split. The tools already fetch the data, so this is a client render mapping in `AssistantChat`; components are SVG/CSS-light and code-split, and the text stream stays primary so answers never block on an image. |
+| V4 | `feat(briefs): optional generated cover art` | Decorative-only: an AI image (Vercel AI Gateway image model) for a brief's cover, generated once and cached to Blob, behind a flag. Never used to depict a real place. Optional. |
+
+Architecture and CWV guardrails: every raster image goes through `next/image` (optimized,
+responsive, lazy, explicit dimensions to prevent layout shift) with a small remote-host
+allowlist and an error fallback; locator maps are static images, not interactive maps, so
+they add no JS; generative UI renders data the tools already returned, with heavy pieces
+code-split and the answer text never blocked on a visual; static maps and optimized images
+are edge-cacheable (stable per place/suburb). Sequencing: V1 is the quick, high-impact win
+(real photos on places); V2 unlocks locators cheaply; V3 is the showcase; V4 is optional polish.
+
 ### Closing
 
 | # | Commit | Scope |

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
 import { MapLegend } from "@/components/ui/MapLegend";
@@ -49,13 +48,24 @@ function toFeatureCollection(points: PlacePoint[]) {
   };
 }
 
-export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; onSelectSuburb?: (suburb: string) => void }) {
-  const router = useRouter();
-  // Kept in a ref so the map (created once) always calls the latest handler without re-creating.
+export function PlacesMap({
+  points,
+  fitKey,
+  onSelectSuburb,
+  onSelectPlace,
+}: {
+  points: PlacePoint[];
+  fitKey: string;
+  onSelectSuburb?: (suburb: string) => void;
+  onSelectPlace?: (placeId: string) => void;
+}) {
+  // Kept in refs so the map (created once) always calls the latest handlers without re-creating.
   const onSelectSuburbRef = useRef(onSelectSuburb);
+  const onSelectPlaceRef = useRef(onSelectPlace);
   useEffect(() => {
     onSelectSuburbRef.current = onSelectSuburb;
-  }, [onSelectSuburb]);
+    onSelectPlaceRef.current = onSelectPlace;
+  }, [onSelectSuburb, onSelectPlace]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
@@ -63,6 +73,9 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(
     hasMapToken() ? "loading" : "no-token",
   );
+  // The filter signature the camera was last framed to, so a plain points refresh (e.g. opening a
+  // place) updates the dots without yanking the view back.
+  const lastFitKeyRef = useRef<string | null>(null);
 
   // Create the map once.
   useEffect(() => {
@@ -189,7 +202,7 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
           });
           map.on("click", "point", (event: MapboxFeature) => {
             const placeId = event.features?.[0]?.properties?.placeId;
-            if (placeId) router.push(`/places/${encodeURIComponent(String(placeId))}`);
+            if (placeId) onSelectPlaceRef.current?.(String(placeId));
           });
 
           map.on("click", "clusters", (event: MapboxFeature) => {
@@ -221,7 +234,8 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
       mapRef.current?.remove?.();
       mapRef.current = null;
     };
-  }, [router]);
+    // Create the map exactly once; all dynamic inputs are read through refs or the points effect.
+  }, []);
 
   // Update the source (and frame the results) whenever the points change.
   useEffect(() => {
@@ -230,7 +244,10 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
     const source = map.getSource("places");
     if (!source) return;
     source.setData(toFeatureCollection(points));
-    if (points.length > 0) {
+    // Reframe only when the filter (fitKey) changed since the last frame, not on every points
+    // update, so opening a place or a background refresh never moves the camera.
+    if (points.length > 0 && fitKey !== lastFitKeyRef.current) {
+      lastFitKeyRef.current = fitKey;
       let minLon = Infinity;
       let minLat = Infinity;
       let maxLon = -Infinity;
@@ -249,6 +266,9 @@ export function PlacesMap({ points, onSelectSuburb }: { points: PlacePoint[]; on
         { padding: 64, maxZoom: 13, duration: 400 },
       );
     }
+    // Driven by points changes; fitKey is read through the closure (current when points arrive for a
+    // new filter). Listing fitKey here would fire before the new points load and frame the old set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, ready]);
 
   return (
