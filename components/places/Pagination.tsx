@@ -32,11 +32,21 @@ function PageLink({ href, disabled, direction }: { href: string; disabled: boole
   const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
   const content = (
     <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700">
-      {direction === "prev" && <Icon className="h-4 w-4" />}
+      {direction === "prev" && <Icon className="h-4 w-4" aria-hidden="true" />}
       {label}
-      {direction === "next" && <Icon className="h-4 w-4" />}
+      {direction === "next" && <Icon className="h-4 w-4" aria-hidden="true" />}
     </span>
   );
-  if (disabled) return <span className="pointer-events-none opacity-40">{content}</span>;
-  return <Link href={href}>{content}</Link>;
+  if (disabled) {
+    return (
+      <span className="pointer-events-none opacity-40" aria-disabled="true">
+        {content}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} aria-label={label}>
+      {content}
+    </Link>
+  );
 }

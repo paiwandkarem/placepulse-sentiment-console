@@ -28,7 +28,7 @@ export default function GlobalError({
           color: "#111827",
         }}
       >
-        <div style={{ textAlign: "center", padding: "2rem" }}>
+        <div role="alert" style={{ textAlign: "center", padding: "2rem" }}>
           <h2 style={{ fontSize: "1.25rem", fontWeight: 700 }}>Something went wrong</h2>
           <p style={{ color: "#4b5563", marginTop: "0.5rem" }}>The application failed to load. Please try again.</p>
           <button

@@ -50,7 +50,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
           </p>
           {detail.address && (
             <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-gray-500">
-              <MapPin className="h-3.5 w-3.5" />
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
               {detail.address}
             </p>
           )}
@@ -125,7 +125,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                     <li key={index} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                       <div className="mb-1.5 flex items-center gap-3 text-xs text-gray-500">
                         <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
                           {review.rating ? review.rating.toFixed(1) : "—"}
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${token.soft}`}>
@@ -157,7 +157,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon?: boo
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-center shadow-sm">
       <div className="inline-flex items-center gap-1 text-lg font-bold text-gray-900">
-        {icon && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
+        {icon && <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />}
         {value}
       </div>
       <div className="text-[11px] uppercase tracking-wide text-gray-500">{label}</div>

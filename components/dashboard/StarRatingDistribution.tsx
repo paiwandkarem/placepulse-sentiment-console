@@ -53,6 +53,8 @@ export function StarRatingDistribution({ record }: { record: SentimentRecord }) 
 
   const series = useMemo(() => [{ name: "Share", data: buckets.map((b) => Number(b.pct.toFixed(2))) }], [buckets]);
 
+  const hasData = buckets.some((b) => b.pct > 0);
+
   return (
     <div className="flex h-[340px] flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm font-sans">
       <div className="mb-2 flex items-center justify-between px-1">
@@ -64,9 +66,15 @@ export function StarRatingDistribution({ record }: { record: SentimentRecord }) 
           <span className="text-xs text-gray-500">avg rating</span>
         </div>
       </div>
-      <div className="min-h-0 flex-1" role="img" aria-label="Bar chart of the share of reviews by star rating.">
-        <ReactApexChart options={options} series={series} type="bar" height="100%" />
-      </div>
+      {hasData ? (
+        <div className="min-h-0 flex-1" role="img" aria-label="Bar chart of the share of reviews by star rating.">
+          <ReactApexChart options={options} series={series} type="bar" height="100%" />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
+          No rating distribution for this selection.
+        </div>
+      )}
     </div>
   );
 }
