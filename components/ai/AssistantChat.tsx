@@ -48,7 +48,16 @@ export function AssistantChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [surface, contextKey],
   );
-  const { messages, sendMessage, status, error, stop } = useChat({ id, messages: initialMessages, transport });
+  // Only pass `id` when we actually have one. useChat recreates its underlying Chat on every render
+  // whenever an `id` key is present but undefined, because the Chat it builds generates its own id
+  // that never equals undefined. That recreation silently discards the streaming state, so nothing
+  // renders live. A resumed thread passes a real id (stable, so no recreation); a fresh chat or the
+  // dock passes none.
+  const { messages, sendMessage, status, error, stop } = useChat({
+    ...(id ? { id } : {}),
+    messages: initialMessages,
+    transport,
+  });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
