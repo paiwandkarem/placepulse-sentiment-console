@@ -220,7 +220,10 @@ export function AssistantChat({
               <div key={message.id} className="space-y-2">
                 {message.parts.map((part, index) =>
                   part.type === "text" ? (
-                    <Streamdown key={index} className="text-sm leading-relaxed text-gray-800">
+                    <Streamdown
+                      key={index}
+                      className="text-sm leading-relaxed text-gray-800 [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
+                    >
                       {part.text}
                     </Streamdown>
                   ) : (
