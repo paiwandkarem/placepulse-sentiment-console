@@ -23,9 +23,18 @@ import type { ComparisonInput, RequiredSentimentFilters } from "@/lib/validation
 type DbRow = Record<string, unknown>;
 
 // Postgres `date` columns can come back as a Date or a string depending on the driver path;
-// normalise to a plain YYYY-MM-DD so the rest of the app deals in one date format.
+// normalise to a plain YYYY-MM-DD so the rest of the app deals in one date format. A `date` arrives
+// as a Date at the runtime's LOCAL midnight, so we read its local components: toISOString would shift
+// it to the previous day on any non-UTC runtime (a date stored as Brisbane midnight reads back as the
+// 31st of the prior month in UTC), which broke the KPI year-on-year lookup against the date::text
+// trend. Strings pass through, matching the date::text queries elsewhere.
 function toDateString(value: unknown): string {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
   return String(value).slice(0, 10);
 }
 
