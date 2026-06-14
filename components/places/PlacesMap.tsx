@@ -4,8 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
 import { MapLegend } from "@/components/ui/MapLegend";
-import { MAP_COLORS, MAP_STYLE, escapeHtml, hasMapToken, popupCard } from "@/lib/map/config";
-import type { ExpressionSpecification } from "mapbox-gl";
+import {
+  MAP_COLORS,
+  MAP_STYLE,
+  PLACES_SUBURB_FILL_OPACITY,
+  PLACES_SUBURB_LINE_COLOR,
+  PLACES_SUBURB_LINE_OPACITY,
+  PLACES_SUBURB_LINE_WIDTH,
+  SELECTED_PLACE_RING,
+  SUBURB_FILL_COLOR,
+  escapeHtml,
+  hasMapToken,
+  popupCard,
+} from "@/lib/map/config";
 import type { PlacePoint } from "@/lib/repositories/poiRepository";
 
 // The clustered point map behind the Places explorer. mapbox-gl is imported inside the effect (it
@@ -18,9 +29,11 @@ import type { PlacePoint } from "@/lib/repositories/poiRepository";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MapboxFeature = any;
 
-// The Queensland suburb boundaries (the dashboard map's source) double as a navigation layer here:
-// visible when zoomed out, faded when zoomed in, and clicking one drills into that suburb.
-const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL;
+// The Queensland suburb boundaries (the same source the dashboard and briefs maps use) double as a
+// navigation layer here: visible when zoomed out, faded when zoomed in, and clicking one drills into
+// that suburb. Falls back to the bundled static file when the CDN env var is unset, exactly like the
+// other two maps, so the suburb overlay always loads (without it Places shows only points).
+const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL || "/qld-suburbs.geojson";
 
 // The hover card for a place: a single photo, the name and category, the star rating and review
 // count, and a short real review. Built as an HTML string because Mapbox popups take markup, not
@@ -70,28 +83,6 @@ function toFeatureCollection(points: PlacePoint[]) {
     })),
   };
 }
-
-// The suburb border switches to the shared near-black "selected" colour when a suburb is open, the
-// same emphasis the dashboard and briefs maps use; unselected keeps the emerald line that fades with
-// zoom. Selected stays full-strength so it reads clearly even zoomed in where the context lines fade.
-const PLACES_SUBURB_LINE_COLOR: ExpressionSpecification = [
-  "case",
-  ["boolean", ["feature-state", "selected"], false],
-  MAP_COLORS.selectedLine,
-  MAP_COLORS.line,
-];
-const PLACES_SUBURB_LINE_OPACITY: ExpressionSpecification = [
-  "case",
-  ["boolean", ["feature-state", "selected"], false],
-  1,
-  ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.12],
-];
-const PLACES_SUBURB_LINE_WIDTH: ExpressionSpecification = [
-  "case",
-  ["boolean", ["feature-state", "selected"], false],
-  2.5,
-  ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.8],
-];
 
 export function PlacesMap({
   points,
@@ -160,19 +151,10 @@ export function PlacesMap({
               type: "fill",
               source: "suburbs",
               paint: {
-                "fill-color": MAP_COLORS.fill,
-                // Fades out as you zoom in (boundaries are context, points take over).
-                "fill-opacity": [
-                  "interpolate",
-                  ["linear"],
-                  ["zoom"],
-                  5,
-                  ["case", ["boolean", ["feature-state", "hover"], false], 0.3, 0.1],
-                  9,
-                  ["case", ["boolean", ["feature-state", "hover"], false], 0.2, 0.04],
-                  11,
-                  0,
-                ],
+                // Shared fill expression: emerald-700 when hovered or selected (matching the briefs
+                // map), emerald-500 otherwise. Opacity stays faded for context but full for a selection.
+                "fill-color": SUBURB_FILL_COLOR,
+                "fill-opacity": PLACES_SUBURB_FILL_OPACITY,
               },
             });
             map.addLayer({
@@ -249,10 +231,10 @@ export function PlacesMap({
             type: "circle",
             source: "selected-place",
             paint: {
-              "circle-radius": 9,
+              "circle-radius": SELECTED_PLACE_RING.radius,
               "circle-color": MAP_COLORS.point,
-              "circle-stroke-width": 3,
-              "circle-stroke-color": MAP_COLORS.selectedLine,
+              "circle-stroke-width": SELECTED_PLACE_RING.strokeWidth,
+              "circle-stroke-color": SELECTED_PLACE_RING.strokeColor,
             },
           });
 
