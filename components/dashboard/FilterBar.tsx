@@ -63,10 +63,12 @@ export function FilterBar({
   }
 
   return (
-    <div className="w-full overflow-x-auto overscroll-x-contain rounded-xl border border-gray-200 bg-white px-4 py-3 font-sans shadow-sm">
+    <div className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-sans shadow-sm sm:overflow-x-auto sm:overscroll-x-contain">
       <div
         className={cn(
-          "flex min-w-max flex-row items-center gap-5 whitespace-nowrap transition-opacity",
+          // Stacks vertically on phones so the controls never force a sideways scroll; reverts to the
+          // single inline row from the sm breakpoint up.
+          "flex flex-col items-start gap-3 transition-opacity sm:min-w-max sm:flex-row sm:items-center sm:gap-5 sm:whitespace-nowrap",
           isPending && "opacity-60",
         )}
         aria-busy={isPending}
