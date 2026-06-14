@@ -6,8 +6,19 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { model } from "@/lib/ai/model";
 import { aggTypeForCategory } from "@/lib/filters";
 import { getSentimentDashboardContext } from "@/lib/services/sentimentService";
-import { briefContentSchema, type BriefChartData, type BriefKeywords, type BriefMeta, type BriefQuote, type BriefThemeRow } from "./schema";
+import {
+  comparisonContentSchema,
+  overviewContentSchema,
+  type BriefChartData,
+  type BriefKeywords,
+  type BriefMeta,
+  type BriefQuote,
+  type BriefThemeRow,
+  type ComparisonMeta,
+  type ComparisonSuburb,
+} from "./schema";
 import { BriefDocument } from "./document";
+import { ComparisonDocument } from "./document-comparison";
 import { fetchSuburbMapDataUri } from "./map";
 import { RISK_STYLE, riskTierFor } from "./theme";
 import { completeBriefJob, failBriefJob } from "./repository";
@@ -184,7 +195,7 @@ export async function runBriefJob(
     const [{ object: content }, mapDataUri] = await Promise.all([
       generateObject({
         model: model("brief"),
-        schema: briefContentSchema,
+        schema: overviewContentSchema,
         system: BRIEF_SYSTEM_PROMPT,
         prompt: `Write the brief from this data.\n\n${buildDigest(ctx)}`,
       }),
@@ -209,6 +220,101 @@ export async function runBriefJob(
     await failBriefJob({
       id: jobId,
       error: error instanceof Error ? error.message : "Brief generation failed.",
+    });
+  }
+}
+
+// ---- Comparison brief (B4): two or three suburbs, head to head ----
+
+const COMPARISON_SYSTEM_PROMPT = `You are a sentiment analyst writing a head-to-head comparison brief about two or three Queensland suburbs, for a council, tourism or precinct team.
+
+Voice: decisive and specific. Commit to which suburb leads overall and why, rather than hedging.
+
+Rules:
+- Use only the figures and themes in the data provided. Never invent a number, theme, suburb or business.
+- Refer to each suburb by the exact name provided.
+- Cite figures, for example "satisfaction 74 out of 100 versus 68".
+- Write in plain, professional language with no hyphenated dashes and no filler.
+- whereEachLeads must name a real leader per dimension, and perSuburb must give one concrete recommendation for each suburb.`;
+
+// One suburb's factual column, derived from its dashboard context (the same source the suburb panel
+// uses), including its standout strength and weakness from the theme drivers.
+function buildComparisonSuburb(ctx: Ctx): ComparisonSuburb {
+  const record = ctx.record;
+  const working = [...ctx.drivers].filter((driver) => driver.uiBucket === "working").sort((a, b) => b.positivePct - a.positivePct);
+  const notWorking = [...ctx.drivers].filter((driver) => driver.uiBucket === "not_working").sort((a, b) => b.negativePct - a.negativePct);
+  return {
+    areaName: record.areaName,
+    satisfaction100: round(record.overallSatisfaction100),
+    avgRating: record.avgRating,
+    totalReviews: record.totalReviews,
+    positivePct: round(record.positivePct),
+    negativePct: round(record.negativePct),
+    neutralPct: round(record.neutralPct),
+    riskTier: riskTierFor(record.overallSatisfaction100),
+    trend: ctx.trend.slice(-13).map((point) => ({ date: point.date, value: round(point.overallSatisfaction100) })),
+    topStrength: working[0] ? { label: working[0].label, pct: round(working[0].positivePct) } : null,
+    topWeakness: notWorking[0] ? { label: notWorking[0].label, pct: round(notWorking[0].negativePct) } : null,
+  };
+}
+
+function buildComparisonDigest(suburbs: ComparisonSuburb[], category: string): string {
+  const lines: string[] = [`Comparing ${suburbs.length} Queensland suburbs for: ${category}.`, ""];
+  suburbs.forEach((suburb) => {
+    lines.push(`${suburb.areaName}:`);
+    lines.push(`- Satisfaction: ${suburb.satisfaction100} out of 100 (${RISK_STYLE[suburb.riskTier].label})`);
+    lines.push(`- Average star rating: ${suburb.avgRating} out of 5, across ${suburb.totalReviews} reviews`);
+    lines.push(`- Sentiment split: ${suburb.positivePct}% positive, ${suburb.negativePct}% negative, ${suburb.neutralPct}% neutral`);
+    if (suburb.topStrength) lines.push(`- Strongest theme: ${suburb.topStrength.label} (${suburb.topStrength.pct}% positive)`);
+    if (suburb.topWeakness) lines.push(`- Weakest theme: ${suburb.topWeakness.label} (${suburb.topWeakness.pct}% negative)`);
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+
+export async function runComparisonBriefJob(
+  jobId: string,
+  input: { areaNames: string[]; category?: string },
+): Promise<void> {
+  try {
+    const contexts = await Promise.all(
+      input.areaNames.map((areaName) =>
+        getSentimentDashboardContext({
+          areaName,
+          category: input.category,
+          aggType: aggTypeForCategory(input.category),
+        }),
+      ),
+    );
+    const valid = contexts.filter((ctx): ctx is Ctx => Boolean(ctx));
+    if (valid.length < 2) {
+      await failBriefJob({ id: jobId, error: "Need at least two suburbs with data to compare." });
+      return;
+    }
+
+    const suburbs = valid.map(buildComparisonSuburb);
+    const meta: ComparisonMeta = {
+      areaNames: suburbs.map((suburb) => suburb.areaName),
+      category: input.category ?? "overall",
+      period: dayjs(valid[0].filters.date).format("MMMM YYYY"),
+      suburbs,
+    };
+    const categoryLabel = input.category ?? "all categories (overall)";
+
+    const { object: content } = await generateObject({
+      model: model("brief"),
+      schema: comparisonContentSchema,
+      system: COMPARISON_SYSTEM_PROMPT,
+      prompt: `Write the comparison from this data.\n\n${buildComparisonDigest(suburbs, categoryLabel)}`,
+    });
+
+    const buffer = await renderToBuffer(<ComparisonDocument content={content} meta={meta} />);
+    const blob = await put(`briefs/${jobId}.pdf`, buffer, { access: "public", contentType: "application/pdf" });
+    await completeBriefJob({ id: jobId, content: JSON.stringify(content), pdfBlobUrl: blob.url });
+  } catch (error) {
+    await failBriefJob({
+      id: jobId,
+      error: error instanceof Error ? error.message : "Comparison brief generation failed.",
     });
   }
 }

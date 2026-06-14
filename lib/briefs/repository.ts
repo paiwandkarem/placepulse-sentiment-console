@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@/lib/db/client";
+import type { BriefType } from "./schema";
 
 // The only place that reads and writes brief_jobs. A brief moves through running, then completed or
 // failed. The drafted content is stored as JSON text and the rendered PDF lives in Blob, with its
@@ -9,9 +10,10 @@ export type BriefStatus = "running" | "completed" | "failed";
 
 export type BriefJob = {
   id: string;
+  type: BriefType;
   status: BriefStatus;
   title: string;
-  filters: { areaName: string; category: string | null };
+  filters: { areaName?: string; areaNames?: string[]; category: string | null };
   content: string | null;
   pdfBlobUrl: string | null;
   error: string | null;
@@ -24,9 +26,10 @@ type DbRow = Record<string, unknown>;
 function toBriefJob(row: DbRow): BriefJob {
   return {
     id: String(row.id),
+    type: (row.type as BriefType) ?? "overview",
     status: row.status as BriefStatus,
     title: String(row.title),
-    filters: (row.filters as BriefJob["filters"]) ?? { areaName: "", category: null },
+    filters: (row.filters as BriefJob["filters"]) ?? { category: null },
     content: (row.content as string | null) ?? null,
     pdfBlobUrl: (row.pdf_blob_url as string | null) ?? null,
     error: (row.error as string | null) ?? null,
@@ -38,12 +41,13 @@ function toBriefJob(row: DbRow): BriefJob {
 export async function createBriefJob(input: {
   id: string;
   userId: string;
+  type: BriefType;
   title: string;
-  filters: { areaName: string; category: string | null };
+  filters: { areaName?: string; areaNames?: string[]; category: string | null };
 }): Promise<void> {
   await sql`
-    insert into brief_jobs (id, user_id, status, title, filters)
-    values (${input.id}, ${input.userId}, 'running', ${input.title}, ${JSON.stringify(input.filters)}::jsonb)
+    insert into brief_jobs (id, user_id, type, status, title, filters)
+    values (${input.id}, ${input.userId}, ${input.type}, 'running', ${input.title}, ${JSON.stringify(input.filters)}::jsonb)
   `;
 }
 
@@ -70,7 +74,7 @@ export async function failBriefJob(input: { id: string; error: string }): Promis
 
 export async function listBriefJobs(userId: string, limit = 20): Promise<BriefJob[]> {
   const rows = (await sql`
-    select id, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
+    select id, type, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
     from brief_jobs
     where user_id = ${userId}
     order by created_at desc
@@ -90,7 +94,7 @@ export async function deleteBriefJob(id: string, userId: string): Promise<string
 
 export async function getBriefJob(id: string, userId: string): Promise<BriefJob | null> {
   const rows = (await sql`
-    select id, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
+    select id, type, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
     from brief_jobs
     where id = ${id} and user_id = ${userId}
     limit 1
