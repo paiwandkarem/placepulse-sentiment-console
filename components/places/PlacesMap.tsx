@@ -21,14 +21,34 @@ type MapboxFeature = any;
 // visible when zoomed out, faded when zoomed in, and clicking one drills into that suburb.
 const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL;
 
-// The hover card for a place, built from the shared popup chrome.
+// The hover card for a place: a single photo, the name and category, the star rating and review
+// count, and a short real review. Built as an HTML string because Mapbox popups take markup, not
+// React; the photo is a plain lazy <img> that hides itself on error so a stale Google thumbnail
+// never shows as a broken image.
 function placeInsight(properties: Record<string, unknown>): string {
-  const category = properties.category ? escapeHtml(String(properties.category)) : undefined;
+  const name = escapeHtml(String(properties.name ?? "Unnamed place"));
+  const category = properties.category ? escapeHtml(String(properties.category)) : "";
   const rating = properties.rating ? Number(properties.rating).toFixed(1) : "-";
   const reviews = Number(properties.reviewsCount ?? 0).toLocaleString();
-  const body = `<span style="color:#f59e0b">&#9733;</span> ${rating} &middot; ${reviews} reviews
-    <div style="font-size:10px;color:#9ca3af;margin-top:4px">Click to open</div>`;
-  return popupCard({ title: String(properties.name ?? "Unnamed place"), subtitle: category, body });
+  const rawImage = String(properties.image ?? "");
+  const image = /^https?:\/\//i.test(rawImage) ? rawImage.replace(/"/g, "%22") : "";
+  const review = properties.review ? escapeHtml(String(properties.review)) : "";
+
+  const imageHtml = image
+    ? `<img src="${image}" loading="lazy" alt="" onerror="this.style.display='none'" style="width:100%;height:104px;object-fit:cover;border-radius:8px;margin-bottom:7px;display:block" />`
+    : "";
+  const reviewHtml = review
+    ? `<div style="font-size:11px;color:#4b5563;font-style:italic;margin-top:6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">&ldquo;${review}&rdquo;</div>`
+    : "";
+
+  return `<div style="font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;width:220px">
+    ${imageHtml}
+    <div style="font-weight:600;font-size:13px;color:#111827;line-height:1.3">${name}</div>
+    ${category ? `<div style="font-size:11px;color:#6b7280;margin-top:1px">${category}</div>` : ""}
+    <div style="font-size:11px;color:#374151;margin-top:5px"><span style="color:#f59e0b">&#9733;</span> ${rating} &middot; ${reviews} reviews</div>
+    ${reviewHtml}
+    <div style="font-size:10px;color:#9ca3af;margin-top:6px">Click to open</div>
+  </div>`;
 }
 
 function toFeatureCollection(points: PlacePoint[]) {
@@ -43,6 +63,8 @@ function toFeatureCollection(points: PlacePoint[]) {
         category: place.category,
         rating: place.rating,
         reviewsCount: place.reviewsCount,
+        image: place.image ?? "",
+        review: place.review ?? "",
       },
     })),
   };
