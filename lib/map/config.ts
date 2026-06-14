@@ -59,6 +59,30 @@ export const SUBURB_LINE_WIDTH: ExpressionSpecification = [
   1,
 ];
 
+// Choropleth fill for the briefs category map: each suburb shaded by its satisfaction for the chosen
+// category, set per feature via feature-state "score". Suburbs with no score (not ranked) stay a
+// neutral grey. The scale spans the compressed satisfaction range these scores actually occupy.
+export const CHOROPLETH_FILL_COLOR: ExpressionSpecification = [
+  "case",
+  ["<", ["coalesce", ["feature-state", "score"], -1], 0],
+  "#e5e7eb",
+  [
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["feature-state", "score"], 0],
+    50,
+    "#e11d48",
+    62,
+    "#f59e0b",
+    72,
+    "#10b981",
+    82,
+    "#047857",
+  ],
+];
+
+export const CHOROPLETH_FILL_OPACITY = 0.72;
+
 // Shared status copy so both maps say the same thing in the same state.
 export const MAP_STATUS_COPY = {
   loading: "Loading map",

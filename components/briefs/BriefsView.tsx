@@ -1,8 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import dynamic from "next/dynamic";
-import { CheckCircle2, ExternalLink, FileText, Loader2, Trash2, TriangleAlert, X } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CheckCircle2,
+  ExternalLink,
+  FileText,
+  LayoutDashboard,
+  Layers,
+  Loader2,
+  Trash2,
+  TrendingUp,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { track } from "@vercel/analytics";
 import { cn } from "@/lib/ui/sentiment";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
@@ -35,6 +47,14 @@ function capFor(type: BriefType): number {
   return 1;
 }
 
+// Each brief type gets an icon and a colour, so the history grid reads at a glance.
+const TYPE_STYLE: Record<BriefType, { icon: ComponentType<{ className?: string }>; accent: string; soft: string }> = {
+  overview: { icon: LayoutDashboard, accent: "text-gray-700", soft: "bg-gray-100" },
+  comparison: { icon: ArrowLeftRight, accent: "text-indigo-700", soft: "bg-indigo-50" },
+  category: { icon: Layers, accent: "text-amber-700", soft: "bg-amber-50" },
+  momentum: { icon: TrendingUp, accent: "text-emerald-700", soft: "bg-emerald-50" },
+};
+
 function parseContent(raw: string | null): BriefContent | null {
   if (!raw) return null;
   try {
@@ -59,6 +79,9 @@ export function BriefsView({
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per-suburb satisfaction for the chosen category (keyed by category), used to shade the map in
+  // category mode. Keyed so a stale fetch is never shown against the wrong category.
+  const [scores, setScores] = useState<{ category: string; data: { areaName: string; value: number }[] } | null>(null);
 
   const areaSet = useMemo(() => new Set(areaNames), [areaNames]);
 
@@ -97,6 +120,28 @@ export function BriefsView({
     const timer = setInterval(refresh, 2500);
     return () => clearInterval(timer);
   }, [briefs, refresh]);
+
+  // In category mode, fetch the category's per-suburb satisfaction so the map can shade it. Cleared
+  // for every other type or when no category is chosen.
+  useEffect(() => {
+    if (type !== "category" || category === ALL_CATEGORIES) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/sentiment/category-rank?category=${encodeURIComponent(category)}`);
+        if (!response.ok || cancelled) return;
+        const data = (await response.json()) as { suburbs: { areaName: string; satisfaction100: number }[] };
+        if (!cancelled) {
+          setScores({ category, data: data.suburbs.map((suburb) => ({ areaName: suburb.areaName, value: suburb.satisfaction100 })) });
+        }
+      } catch {
+        // Leave any prior scores: the map only shows them when their category matches the selection.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [type, category]);
 
   const remove = useCallback(async (id: string) => {
     track("brief_deleted");
@@ -150,10 +195,17 @@ export function BriefsView({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:h-[60vh] lg:flex-row">
         <div className="relative min-h-[340px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-          <SuburbSelectMap selected={areas} selectable={areaNames} onToggle={toggleSuburb} />
+          <SuburbSelectMap
+            selected={areas}
+            selectable={areaNames}
+            onToggle={toggleSuburb}
+            scores={type === "category" && scores?.category === category ? scores.data : undefined}
+          />
           {type === "category" && (
             <div className="absolute inset-x-0 top-0 z-[1] bg-gray-900/80 px-4 py-2 text-center text-xs font-medium text-white">
-              Category deep-dive ranks every Queensland suburb, so no map selection is needed.
+              {category === ALL_CATEGORIES
+                ? "Pick a category to shade every Queensland suburb by its satisfaction."
+                : `Suburbs shaded by satisfaction for ${category}.`}
             </div>
           )}
         </div>
@@ -263,7 +315,7 @@ export function BriefsView({
         {briefs.length === 0 ? (
           <p className="text-sm text-gray-500">No briefs yet. Generate one above.</p>
         ) : (
-          <ul className="space-y-4">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {briefs.map((brief) => (
               <BriefCard key={brief.id} brief={brief} onDelete={remove} />
             ))}
@@ -276,21 +328,55 @@ export function BriefsView({
 
 function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string) => void }) {
   const content = parseContent(brief.content);
+  const style = TYPE_STYLE[brief.type];
+  const Icon = style.icon;
 
   return (
-    <li className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-900">{brief.title}</h3>
-            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+    <li className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", style.soft)}>
+            <Icon className={cn("h-5 w-5", style.accent)} />
+          </span>
+          <div className="min-w-0">
+            <span className={cn("block text-[10px] font-bold uppercase tracking-wide", style.accent)}>
               {BRIEF_TYPE_META[brief.type].label}
             </span>
+            <h3 className="truncate text-sm font-semibold text-gray-900">{brief.title}</h3>
           </div>
-          <p className="mt-0.5 text-xs text-gray-500">{new Date(brief.createdAt).toLocaleString()}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <StatusPill status={brief.status} />
+        <StatusPill status={brief.status} />
+      </div>
+
+      {brief.status === "running" && (
+        <div className="flex min-h-[3rem] items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Drafting and rendering...
+        </div>
+      )}
+      {brief.status === "failed" && <p className="text-sm text-rose-600">{brief.error ?? "Generation failed."}</p>}
+      {brief.status === "completed" && content && (
+        <div className="space-y-1.5">
+          <p className="text-sm font-semibold text-gray-900">{content.headline}</p>
+          <p className="line-clamp-3 text-xs leading-relaxed text-gray-600">{content.executiveSummary}</p>
+        </div>
+      )}
+
+      <div className="mt-auto flex items-center justify-between gap-2 pt-4">
+        <p className="text-xs text-gray-400">{new Date(brief.createdAt).toLocaleDateString()}</p>
+        <div className="flex items-center gap-1.5">
+          {brief.status === "completed" && brief.pdfBlobUrl && (
+            <a
+              href={brief.pdfBlobUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => track("brief_viewed")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              View PDF
+            </a>
+          )}
           {brief.status !== "running" && (
             <button
               type="button"
@@ -304,32 +390,6 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
           )}
         </div>
       </div>
-
-      {brief.status === "running" && (
-        <div className="mt-3 flex min-h-[3.5rem] items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Drafting the brief and rendering the PDF...
-        </div>
-      )}
-      {brief.status === "failed" && <p className="mt-3 text-sm text-rose-600">{brief.error ?? "Generation failed."}</p>}
-      {brief.status === "completed" && content && (
-        <div className="mt-3 space-y-2">
-          <p className="text-sm font-semibold text-gray-900">{content.headline}</p>
-          <p className="text-sm text-gray-600">{content.executiveSummary}</p>
-          {brief.pdfBlobUrl && (
-            <a
-              href={brief.pdfBlobUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => track("brief_viewed")}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              View PDF
-            </a>
-          )}
-        </div>
-      )}
     </li>
   );
 }

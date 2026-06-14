@@ -5,6 +5,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
 import { MapLegend } from "@/components/ui/MapLegend";
 import {
+  CHOROPLETH_FILL_COLOR,
+  CHOROPLETH_FILL_OPACITY,
   MAP_COLORS,
   MAP_STYLE,
   SUBURB_FILL_COLOR,
@@ -28,11 +30,15 @@ export function SuburbSelectMap({
   selected,
   selectable,
   onToggle,
+  scores,
   className,
 }: {
   selected: string[];
   selectable: string[];
   onToggle: (name: string) => void;
+  // When provided, the map switches to a choropleth shaded by these per-suburb scores (the category
+  // deep-dive view) instead of the selection colouring.
+  scores?: { areaName: string; value: number }[];
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -40,7 +46,9 @@ export function SuburbSelectMap({
   const mapRef = useRef<any>(null);
   const hoveredRef = useRef<string | null>(null);
   const appliedRef = useRef<Set<string>>(new Set());
+  const appliedScoresRef = useRef<Set<string>>(new Set());
   const selectedRef = useRef(selected);
+  const scoresRef = useRef(scores);
   const selectableRef = useRef<Set<string>>(new Set(selectable));
   const onToggleRef = useRef(onToggle);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(
@@ -65,6 +73,28 @@ export function SuburbSelectMap({
       if (!appliedRef.current.has(name)) map.setFeatureState({ source: "suburbs", id: name }, { selected: true });
     }
     appliedRef.current = next;
+  }, []);
+
+  // Choropleth mode: shade suburbs by their category satisfaction (feature-state "score") and switch
+  // the fill paint. Passing no scores reverts to the plain selection colouring.
+  const applyScores = useCallback((next: { areaName: string; value: number }[] | undefined) => {
+    const map = mapRef.current;
+    if (!map?.getSource?.("suburbs") || !map.getLayer?.("suburb-fill")) return;
+    if (next) {
+      map.setPaintProperty("suburb-fill", "fill-color", CHOROPLETH_FILL_COLOR);
+      map.setPaintProperty("suburb-fill", "fill-opacity", CHOROPLETH_FILL_OPACITY);
+      const names = new Set(next.map((entry) => entry.areaName));
+      for (const name of appliedScoresRef.current) {
+        if (!names.has(name)) map.setFeatureState({ source: "suburbs", id: name }, { score: null });
+      }
+      for (const entry of next) map.setFeatureState({ source: "suburbs", id: entry.areaName }, { score: entry.value });
+      appliedScoresRef.current = names;
+    } else {
+      map.setPaintProperty("suburb-fill", "fill-color", SUBURB_FILL_COLOR);
+      map.setPaintProperty("suburb-fill", "fill-opacity", SUBURB_FILL_OPACITY);
+      for (const name of appliedScoresRef.current) map.setFeatureState({ source: "suburbs", id: name }, { score: null });
+      appliedScoresRef.current = new Set();
+    }
   }, []);
 
   useEffect(() => {
@@ -145,6 +175,7 @@ export function SuburbSelectMap({
             source?.setData(fc);
             appliedRef.current = new Set();
             applySelected(selectedRef.current);
+            applyScores(scoresRef.current);
             setStatus("ready");
           } catch {
             if (!cancelled) setStatus("error");
@@ -173,6 +204,12 @@ export function SuburbSelectMap({
     applySelected(selected);
   }, [selected, applySelected]);
 
+  // Switch between the selection colouring and the category choropleth as scores arrive or clear.
+  useEffect(() => {
+    scoresRef.current = scores;
+    applyScores(scores);
+  }, [scores, applyScores]);
+
   return (
     <div className={cn("relative h-full w-full overflow-hidden", className)}>
       <div ref={containerRef} className="h-full w-full" />
@@ -180,10 +217,18 @@ export function SuburbSelectMap({
       {status === "ready" && (
         <MapLegend
           className="absolute bottom-3 left-3"
-          items={[
-            { color: MAP_COLORS.fill, label: "Suburb" },
-            { color: MAP_COLORS.hover, label: "Selected" },
-          ]}
+          items={
+            scores
+              ? [
+                  { color: "#e11d48", label: "Lower" },
+                  { color: "#f59e0b", label: "Mid" },
+                  { color: "#047857", label: "Higher" },
+                ]
+              : [
+                  { color: MAP_COLORS.fill, label: "Suburb" },
+                  { color: MAP_COLORS.hover, label: "Selected" },
+                ]
+          }
         />
       )}
     </div>
