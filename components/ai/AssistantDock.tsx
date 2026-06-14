@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Maximize2, Minimize2, X } from "lucide-react";
+import { Bot, Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 import { AssistantChat } from "./AssistantChat";
+
+// sessionStorage key under which the dock keeps its in-progress conversation, so it survives closing
+// the panel or navigating to a place detail. Per-tab and ephemeral by design: a new tab starts fresh
+// and nothing leaks into the page's browsable thread list.
+const DOCK_PERSIST_KEY = "placepulse:dock-chat";
 
 // The dashboard copilot: a launcher pinned to the bottom-right that opens a chat panel over the
 // page. It shares the same engine and components as the full-screen assistant; this is only the
@@ -21,12 +26,26 @@ import { AssistantChat } from "./AssistantChat";
 export function AssistantDock({ areaName, category }: { areaName?: string; category?: string }) {
   const [open, setOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
+  // Bumped to force a fresh AssistantChat (new thread id, empty history) when the user restarts.
+  const [resetNonce, setResetNonce] = useState(0);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   function close() {
     setOpen(false);
     launcherRef.current?.focus();
+  }
+
+  // Clear the persisted conversation and remount the chat fresh. Keeps the dock open so the user
+  // lands on an empty composer rather than having the panel disappear under them.
+  function restart() {
+    try {
+      window.sessionStorage.removeItem(DOCK_PERSIST_KEY);
+    } catch {
+      // Best-effort: if storage is unavailable the remount below still starts a clean chat.
+    }
+    setResetNonce((value) => value + 1);
+    panelRef.current?.focus();
   }
 
   useEffect(() => {
@@ -67,6 +86,14 @@ export function AssistantDock({ areaName, category }: { areaName?: string; categ
             <div className="flex items-center gap-1">
               <button
                 type="button"
+                onClick={restart}
+                aria-label="Start a new conversation"
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setMaximized((value) => !value)}
                 aria-label={maximized ? "Restore assistant size" : "Maximize assistant"}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -83,7 +110,13 @@ export function AssistantDock({ areaName, category }: { areaName?: string; categ
               </button>
             </div>
           </header>
-          <AssistantChat surface="dock" contextFilters={{ areaName, category }} className="flex-1" />
+          <AssistantChat
+            key={resetNonce}
+            surface="dock"
+            contextFilters={{ areaName, category }}
+            persistKey={DOCK_PERSIST_KEY}
+            className="flex-1"
+          />
         </div>
       )}
 
