@@ -51,13 +51,14 @@ export async function saveChatSession(input: {
   `;
 }
 
-export type ChatThreadSummary = { id: string; title: string | null; updatedAt: string };
+export type ChatThreadSummary = { id: string; title: string | null; updatedAt: string; origin: string | null };
 
 // The assistant page's thread list: a user's resumable conversations, most recent first. Scoped to
-// the 'assistant' surface so the ephemeral dock chats never appear here.
+// the 'assistant' surface so the ephemeral dock chats never appear here, unless one was explicitly
+// promoted from the dock (which flips its surface and stamps origin = 'dock').
 export async function listThreads(userId: string, limit = 50): Promise<ChatThreadSummary[]> {
   const rows = (await sql`
-    select id, title, updated_at
+    select id, title, updated_at, origin
     from chat_sessions
     where user_id = ${userId} and surface = 'assistant'
     order by updated_at desc
@@ -67,7 +68,22 @@ export async function listThreads(userId: string, limit = 50): Promise<ChatThrea
     id: String(row.id),
     title: (row.title as string | null) ?? null,
     updatedAt: String(row.updated_at),
+    origin: (row.origin as string | null) ?? null,
   }));
+}
+
+// Promote a dashboard-dock conversation to the full assistant page: flip its surface so it appears
+// in the thread list and stamp its origin so the list can mark it "From dashboard". Scoped to the
+// caller and to surface = 'dock', so it only ever moves the user's own contextual chats and is a
+// no-op (returns false) if the thread was not a saved dock chat. Idempotent.
+export async function promoteDockThread(id: string, userId: string): Promise<boolean> {
+  const rows = (await sql`
+    update chat_sessions
+    set surface = 'assistant', origin = 'dock', updated_at = now()
+    where id = ${id} and user_id = ${userId} and surface = 'dock'
+    returning id
+  `) as Record<string, unknown>[];
+  return rows.length > 0;
 }
 
 export type ChatThread = {
