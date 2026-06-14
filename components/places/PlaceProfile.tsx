@@ -4,6 +4,7 @@ import { getPlaceProfile } from "@/lib/services/placesService";
 import { Pagination } from "@/components/places/Pagination";
 import { Card } from "@/components/ui/Card";
 import { PlaceImage } from "@/components/ui/PlaceImage";
+import { PlaceGalleryProvider, GalleryImage } from "@/components/places/PlaceGallery";
 import { Avatar } from "@/components/ui/Avatar";
 import { placeStaticMapUrl } from "@/lib/map/staticMap";
 import { SENTIMENT_TOKENS } from "@/lib/ui/sentiment";
@@ -32,17 +33,22 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
   const maxMentions = Math.max(1, ...words.map((word) => word.mentions));
   const mapUrl = placeStaticMapUrl(detail.lat, detail.lon, { width: 480, height: 220 });
 
+  // The hero plus the photo strip, deduped, drive one shared lightbox. The static locator map is not
+  // part of it.
+  const galleryImages = [...new Set([detail.mainImage, ...detail.photos].filter((src): src is string => Boolean(src)))];
+
   function reviewHref(page: number): string {
     const base = `/places/${encodeURIComponent(detail.placeId)}`;
     return page > 1 ? `${base}?rpage=${page}` : base;
   }
 
   return (
+    <PlaceGalleryProvider images={galleryImages} name={detail.name || "Place"}>
     <div className="@container">
       <div className="mb-6 flex flex-col gap-4 @2xl:flex-row @2xl:items-end @2xl:justify-between">
         <div className="flex items-start gap-4">
           <div className="relative aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-xl border border-gray-200 @xl:w-36">
-            <PlaceImage src={detail.mainImage} alt={detail.name || "Place photo"} sizes="(min-width: 36rem) 144px, 96px" />
+            <GalleryImage src={detail.mainImage} alt={detail.name || "Place photo"} sizes="(min-width: 36rem) 144px, 96px" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
@@ -116,7 +122,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {detail.photos.slice(0, 6).map((photo, index) => (
                     <div key={photo} className="relative aspect-square overflow-hidden rounded-lg border border-gray-200">
-                      <PlaceImage src={photo} alt={`${detail.name} photo ${index + 1}`} sizes="120px" />
+                      <GalleryImage src={photo} alt={`${detail.name} photo ${index + 1}`} sizes="120px" />
                     </div>
                   ))}
                 </div>
@@ -210,6 +216,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
         </div>
       </div>
     </div>
+    </PlaceGalleryProvider>
   );
 }
 
