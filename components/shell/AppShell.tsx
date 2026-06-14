@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-900 text-white">
             <Gauge className="h-5 w-5" />
           </span>
           <span className="text-base font-extrabold tracking-tight text-gray-900">PlacePulse</span>
@@ -99,7 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-gray-100 p-3">
-          <div className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2">
+          <div className="mb-1 flex items-center gap-3 px-3 py-2">
             <UserButton />
             <span className="text-sm font-medium text-gray-600">Account</span>
           </div>
@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClick={toggle}
         aria-label={collapsed ? "Open sidebar" : "Collapse sidebar"}
         className={cn(
-          "fixed top-1/2 z-50 hidden -translate-y-1/2 rounded-r-md bg-gray-700 py-2 text-white shadow transition-all duration-300 hover:bg-gray-600 md:flex",
+          "fixed top-1/2 z-50 hidden -translate-y-1/2 rounded-r-lg bg-gray-700 px-2 py-2 text-white shadow transition-all duration-300 hover:bg-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:flex",
           collapsed ? "left-0" : "left-64",
         )}
       >

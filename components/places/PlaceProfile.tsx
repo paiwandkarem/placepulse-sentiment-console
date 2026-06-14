@@ -74,8 +74,8 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                   <a
                     href={detail.website}
                     target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:shadow-sm"
                   >
                     <Globe className="h-3.5 w-3.5" aria-hidden="true" />
                     Website
@@ -85,8 +85,8 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                   <a
                     href={detail.googleMapsUrl}
                     target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:shadow-sm"
                   >
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                     Google Maps
@@ -222,7 +222,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
 
 function Stat({ label, value, icon }: { label: string; value: string; icon?: boolean }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-center shadow-sm">
+    <div className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-center shadow-sm @2xl:flex-none">
       <div className="inline-flex items-center gap-1 text-lg font-bold text-gray-900">
         {icon && <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />}
         {value}

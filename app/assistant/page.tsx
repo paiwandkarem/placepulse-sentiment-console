@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { AssistantChat } from "@/components/ai/AssistantChat";
 import { ThreadSidebar } from "@/components/ai/ThreadSidebar";
+import { MobileThreadSheet } from "@/components/ai/MobileThreadSheet";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { listThreads, getThread } from "@/lib/assistant/sessions";
 
@@ -32,10 +33,13 @@ export default async function AssistantPage({
       <ThreadSidebar threads={threads} activeId={active?.id} />
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="border-b border-gray-200 bg-white px-4 py-4 md:px-8">
-          <PageHeader
-            title="Assistant"
-            subtitle="Ask about Queensland suburb sentiment, the themes behind it, or specific places and their reviews. Every answer is read from the data."
-          />
+          <div className="flex items-start justify-between gap-3">
+            <PageHeader
+              title="Assistant"
+              subtitle="Ask about Queensland suburb sentiment, the themes behind it, or specific places and their reviews. Every answer is read from the data."
+            />
+            <MobileThreadSheet threads={threads} activeId={active?.id} />
+          </div>
         </header>
         <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
           {/* Keyed by thread so switching conversations cleanly re-initialises the chat. */}

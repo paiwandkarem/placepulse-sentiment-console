@@ -55,14 +55,14 @@ export function Modal({ children, closeHref }: { children: React.ReactNode; clos
         shown ? "translate-x-0" : "translate-x-full",
       )}
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Place details</span>
         <button
           ref={closeRef}
           type="button"
           onClick={close}
           aria-label="Close place"
-          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>

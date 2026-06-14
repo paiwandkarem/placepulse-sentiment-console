@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { track } from "@vercel/analytics";
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Loader2, Square, TriangleAlert } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
 import type { ChatSurface } from "@/lib/assistant/sessions";
@@ -120,7 +120,7 @@ export function AssistantChat({
                   key={suggestion}
                   type="button"
                   onClick={() => send(suggestion)}
-                  className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-xs text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                  className="block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-xs text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                 >
                   {suggestion}
                 </button>
@@ -154,8 +154,18 @@ export function AssistantChat({
             ),
           )
         )}
-        {status === "submitted" && <p className="text-xs text-gray-400">Thinking...</p>}
-        {error && <p className="text-xs text-rose-600">Something went wrong. Please try again.</p>}
+        {status === "submitted" && (
+          <div className="inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" aria-hidden="true" />
+            Thinking...
+          </div>
+        )}
+        {error && (
+          <div className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-600">
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Something went wrong. Please try again.
+          </div>
+        )}
       </div>
 
       <form
@@ -165,7 +175,7 @@ export function AssistantChat({
         }}
         className="border-t border-gray-200 p-3"
       >
-        <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 focus-within:border-gray-400">
+        <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-100">
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}

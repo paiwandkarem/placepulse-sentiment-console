@@ -61,7 +61,7 @@ export function AssistantDock({ areaName, category }: { areaName?: string; categ
               </span>
               <div className="leading-tight">
                 <p className="text-sm font-semibold text-gray-900">Assistant</p>
-                <p className="text-[11px] text-gray-500">Grounded in Queensland review data</p>
+                <p className="text-xs text-gray-500">Answers read from Queensland review data</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
