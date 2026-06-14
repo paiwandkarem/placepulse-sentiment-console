@@ -21,6 +21,7 @@ function deriveTitle(messages: UIMessage[]): string | null {
 
 export async function saveChatSession(input: {
   id: string;
+  userId: string;
   messages: UIMessage[];
   filters?: unknown;
 }): Promise<void> {
@@ -31,9 +32,11 @@ export async function saveChatSession(input: {
   // Upsert: the first turn creates the row and fixes the title; later turns of the same session
   // overwrite the message list and touch updated_at. The title is kept from the first turn, and
   // filters are only updated when the caller passes a fresh set.
+  // user_id is set on insert and left untouched on conflict: a session belongs to whoever started
+  // it, and later turns of the same id only refresh the messages, title and filters.
   await sql`
-    insert into chat_sessions (id, title, filters, messages, updated_at)
-    values (${input.id}, ${title}, ${filtersJson}::jsonb, ${messagesJson}::jsonb, now())
+    insert into chat_sessions (id, user_id, title, filters, messages, updated_at)
+    values (${input.id}, ${input.userId}, ${title}, ${filtersJson}::jsonb, ${messagesJson}::jsonb, now())
     on conflict (id) do update set
       messages = excluded.messages,
       title = coalesce(chat_sessions.title, excluded.title),

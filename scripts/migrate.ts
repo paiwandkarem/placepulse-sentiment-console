@@ -14,12 +14,21 @@ if (!databaseUrl) {
 
 const sql = neon(databaseUrl);
 
-// Neon's HTTP driver executes a single statement per round trip, so a multi-statement
-// file has to be split before sending. Our schema and migrations only ever use plain
-// statements terminated by a semicolon — no PL/pgSQL functions or dollar-quoted bodies —
-// so splitting on ";" is safe. Revisit this if we ever introduce a function definition.
+// Neon's HTTP driver executes a single statement per round trip, so a multi-statement file has to
+// be split before sending. We strip line comments first (a "--" runs to end of line) so a semicolon
+// inside a comment cannot split a comment into a broken half-statement, then split on ";". This is
+// safe because our schema and migrations use only plain statements, never put "--" inside a string
+// literal, and use no dollar-quoted bodies. Revisit if we ever add a function definition.
 function splitStatements(sqlText: string): string[] {
-  return sqlText
+  const withoutComments = sqlText
+    .split("\n")
+    .map((line) => {
+      const commentAt = line.indexOf("--");
+      return commentAt === -1 ? line : line.slice(0, commentAt);
+    })
+    .join("\n");
+
+  return withoutComments
     .split(";")
     .map((statement) => statement.trim())
     .filter((statement) => statement.length > 0);

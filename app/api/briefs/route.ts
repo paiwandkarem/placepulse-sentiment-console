@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
 import { createBriefJob, listBriefJobs } from "@/lib/briefs/repository";
 import { runBriefJob } from "@/lib/briefs/service";
 
@@ -17,6 +18,11 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Sign in to generate a brief.", { status: 401 });
+  }
+
   const json = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
@@ -27,13 +33,17 @@ export async function POST(request: Request): Promise<Response> {
   const id = nanoid();
   const title = category ? `${areaName}: ${category} sentiment brief` : `${areaName} sentiment brief`;
 
-  await createBriefJob({ id, title, filters: { areaName, category: category ?? null } });
+  await createBriefJob({ id, userId, title, filters: { areaName, category: category ?? null } });
   after(() => runBriefJob(id, { areaName, category }));
 
   return Response.json({ id, status: "running", title }, { status: 202 });
 }
 
 export async function GET(): Promise<Response> {
-  const briefs = await listBriefJobs();
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Sign in to view briefs.", { status: 401 });
+  }
+  const briefs = await listBriefJobs(userId);
   return Response.json({ briefs });
 }
