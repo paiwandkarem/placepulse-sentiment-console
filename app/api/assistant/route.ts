@@ -3,7 +3,7 @@ import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 
 import { model } from "@/lib/ai/model";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
 import { assistantTools } from "@/lib/assistant/tools";
-import { saveChatSession } from "@/lib/assistant/sessions";
+import { saveChatSession, type ChatSurface } from "@/lib/assistant/sessions";
 import { auth } from "@clerk/nextjs/server";
 
 // The assistant endpoint. It runs the conversation through the model with the grounded read tools
@@ -23,6 +23,9 @@ export const maxDuration = 60;
 type AssistantRequest = {
   id?: string;
   messages?: UIMessage[];
+  // Which surface the turn came from: the assistant page keeps a browsable thread history, the dock
+  // is contextual and never listed.
+  surface?: ChatSurface;
   // The dashboard filter state, sent once the copilot is docked (A6). Stored with the session.
   filters?: unknown;
 };
@@ -49,6 +52,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const sessionId = body.id ?? crypto.randomUUID();
+  const surface: ChatSurface = body.surface === "dock" ? "dock" : "assistant";
   const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
@@ -66,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
       // path. after() lets the work finish on Fluid Compute once the response has been sent.
       after(async () => {
         try {
-          await saveChatSession({ id: sessionId, userId, messages: finalMessages, filters: body.filters });
+          await saveChatSession({ id: sessionId, userId, surface, messages: finalMessages, filters: body.filters });
         } catch (error) {
           console.error("Failed to persist chat session", sessionId, error);
         }
