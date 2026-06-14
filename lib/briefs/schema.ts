@@ -16,8 +16,8 @@ export const BRIEF_TYPE_META: Record<
 > = {
   overview: { label: "Suburb overview", description: "Where one suburb stands and what to do.", available: true },
   comparison: { label: "Comparison", description: "Two or three suburbs, head to head.", available: true },
-  category: { label: "Category deep-dive", description: "Best and worst suburbs for one category.", available: false },
-  momentum: { label: "Momentum", description: "Biggest movers and emerging themes.", available: false },
+  category: { label: "Category deep-dive", description: "Best and worst suburbs for one category.", available: true },
+  momentum: { label: "Momentum", description: "Biggest movers and emerging themes.", available: true },
 };
 
 // The overview brief's content shape (the first member of the family). generateObject is constrained
@@ -134,6 +134,74 @@ export type ComparisonMeta = {
   category: string;
   period: string;
   suburbs: ComparisonSuburb[];
+};
+
+// The category deep-dive's content shape (third member). Drafted from a ranking of suburbs for one
+// category across Queensland.
+export const categoryContentSchema = z.object({
+  headline: z.string().describe("A sharp line capturing the state of this category across Queensland."),
+  lede: z.string().describe("One opening sentence naming the category, the leader and a figure."),
+  categoryRead: z
+    .string()
+    .describe("Two to three decisive sentences: which suburbs lead this category and which lag, with figures."),
+  executiveSummary: z.string().describe("A full paragraph, four to six sentences, on how this category performs across the ranked suburbs."),
+  whatLeadersDoWell: z.array(z.string()).max(4).describe("Patterns the top-ranked suburbs share for this category."),
+  watchOuts: z.array(z.string()).max(4).describe("Patterns dragging the lowest-ranked suburbs down for this category."),
+  recommendedActions: z
+    .array(z.object({ action: z.string().describe("A bold, specific action."), detail: z.string().describe("One sentence with specifics.") }))
+    .min(3)
+    .max(4)
+    .describe("Concrete next steps for a team working this category, each following from the ranking."),
+});
+export type CategoryContent = z.infer<typeof categoryContentSchema>;
+
+// One suburb's row in a category ranking, from the data.
+export type CategoryRankRow = { areaName: string; satisfaction100: number; totalReviews: number; positivePct: number; negativePct: number };
+export type CategoryMeta = {
+  category: string;
+  period: string;
+  suburbCount: number;
+  topSuburbs: CategoryRankRow[];
+  bottomSuburbs: CategoryRankRow[];
+};
+
+// The momentum brief's content shape (fourth member). Drafted from one suburb's year-on-year change.
+export const momentumContentSchema = z.object({
+  headline: z.string().describe("A sharp line capturing the suburb's direction of travel over the year."),
+  lede: z.string().describe("One opening sentence naming the suburb and the headline movement, with a figure."),
+  momentumRead: z
+    .string()
+    .describe("Two to three decisive sentences on the trajectory: improving or declining, by how much, and why. Cite the satisfaction change."),
+  executiveSummary: z.string().describe("A full paragraph, four to six sentences, on what moved most over the year and what it means."),
+  risers: z
+    .array(z.object({ theme: z.string().describe("A theme that improved."), detail: z.string().describe("One sentence citing the year-on-year change.") }))
+    .max(4)
+    .describe("Themes gaining ground year on year."),
+  fallers: z
+    .array(z.object({ theme: z.string().describe("A theme that declined."), detail: z.string().describe("One sentence citing the year-on-year change.") }))
+    .max(4)
+    .describe("Themes losing ground year on year."),
+  recommendedActions: z
+    .array(z.object({ action: z.string().describe("A bold, specific action."), detail: z.string().describe("One sentence with specifics.") }))
+    .min(3)
+    .max(4)
+    .describe("Concrete next steps to protect the risers and arrest the fallers."),
+});
+export type MomentumContent = z.infer<typeof momentumContentSchema>;
+
+// One theme's year-on-year move, from the data.
+export type MomentumMove = { label: string; nowPct: number; deltaPp: number };
+export type MomentumMeta = {
+  areaName: string;
+  category: string;
+  period: string;
+  satisfaction100: number;
+  satisfactionDeltaPp: number | null;
+  avgRating: number;
+  totalReviews: number;
+  trend: { date: string; value: number }[];
+  risers: MomentumMove[];
+  fallers: MomentumMove[];
 };
 
 // Until each type defines its own content shape, BriefContent is the overview shape (the page list

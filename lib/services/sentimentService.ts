@@ -10,6 +10,7 @@ import {
   getThemes,
   getTrend,
   listFilters,
+  rankSuburbsForCategory,
 } from "@/lib/repositories/sentimentRepository";
 import { enrichThemes } from "@/lib/sentiment/themeBuckets";
 import { MONTHLY_OVERALL_AGG } from "@/lib/filters";
@@ -145,6 +146,11 @@ export async function getSentimentDashboardContext(input: SentimentFilters): Pro
 export async function getSentimentTrend(input: SentimentFilters): Promise<SentimentTrendPoint[]> {
   const filters = await normaliseFilters(input);
   return getTrend({ aggType: filters.aggType, areaName: filters.areaName, category: filters.category });
+}
+
+// Queensland suburbs ranked by satisfaction for one category, for the category deep-dive brief.
+export async function getCategoryRanking(category: string) {
+  return rankSuburbsForCategory(category);
 }
 
 export async function getAreaComparison(input: ComparisonInput): Promise<SentimentComparison> {
