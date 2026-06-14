@@ -83,6 +83,18 @@ export function BriefsView({
   // category mode. Keyed so a stale fetch is never shown against the wrong category.
   const [scores, setScores] = useState<{ category: string; data: { areaName: string; value: number }[] } | null>(null);
 
+  // The selector map carries mapbox-gl. On phones it is not core to the brief flow (the suburb is
+  // chosen by search) and would cost a heavy load, so it is only *mounted* from md up — not merely
+  // CSS-hidden — so the library never loads on small screens.
+  const [showMap, setShowMap] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 768px)");
+    const update = () => setShowMap(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
   const areaSet = useMemo(() => new Set(areaNames), [areaNames]);
 
   // Switching type resizes the selection to the new cap.
@@ -194,13 +206,15 @@ export function BriefsView({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:h-[60vh] lg:flex-row">
-        <div className="relative min-h-[340px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-          <SuburbSelectMap
-            selected={areas}
-            selectable={areaNames}
-            onToggle={toggleSuburb}
-            scores={type === "category" && scores?.category === category ? scores.data : undefined}
-          />
+        <div className="relative hidden min-h-[340px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 md:block">
+          {showMap && (
+            <SuburbSelectMap
+              selected={areas}
+              selectable={areaNames}
+              onToggle={toggleSuburb}
+              scores={type === "category" && scores?.category === category ? scores.data : undefined}
+            />
+          )}
           {type === "category" && (
             <div className="absolute inset-x-0 top-0 z-[1] bg-gray-900/80 px-4 py-2 text-center text-xs font-medium text-white">
               {category === ALL_CATEGORIES
@@ -315,7 +329,7 @@ export function BriefsView({
         {briefs.length === 0 ? (
           <p className="text-sm text-gray-500">No briefs yet. Generate one above.</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {briefs.map((brief) => (
               <BriefCard key={brief.id} brief={brief} onDelete={remove} />
             ))}
@@ -362,7 +376,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
         </div>
       )}
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-4">
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
         <p className="text-xs text-gray-400">{new Date(brief.createdAt).toLocaleDateString()}</p>
         <div className="flex items-center gap-1.5">
           {brief.status === "completed" && brief.pdfBlobUrl && (
