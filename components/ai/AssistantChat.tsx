@@ -32,13 +32,38 @@ export function AssistantChat({
   initialMessages,
   surface = "assistant",
   contextFilters,
+  persistKey,
 }: {
   className?: string;
   id?: string;
   initialMessages?: UIMessage[];
   surface?: ChatSurface;
   contextFilters?: { areaName?: string; category?: string };
+  // When set, the chat self-manages a stable thread id and its message list in sessionStorage under
+  // this key, so an in-progress conversation survives closing the panel or navigating to a place
+  // detail and back instead of resetting each time it opens. The full-screen page does not pass this
+  // — it resumes server-saved threads via id/initialMessages instead.
+  persistKey?: string;
 }) {
+  // Resolve the persisted session once, on the client, from sessionStorage: an existing {id, messages}
+  // if the user already has a conversation in this tab, otherwise a fresh id and empty history. The
+  // dock panel only mounts after a click, so this never runs during SSR and cannot mismatch hydration.
+  const [persisted] = useState<{ id: string; messages: UIMessage[] } | null>(() => {
+    if (!persistKey || typeof window === "undefined") return null;
+    try {
+      const raw = window.sessionStorage.getItem(persistKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id?: string; messages?: UIMessage[] };
+        if (parsed.id) return { id: parsed.id, messages: parsed.messages ?? [] };
+      }
+    } catch {
+      // Corrupt or unavailable storage falls through to a fresh session.
+    }
+    return { id: crypto.randomUUID(), messages: [] };
+  });
+  const effectiveId = id ?? persisted?.id;
+  const effectiveInitialMessages = initialMessages ?? persisted?.messages;
+
   // One transport per surface, carrying the current dashboard selection when the dock provides it so
   // the model can ground an ambiguous question in the live view. Memoised on a stable key, since the
   // contextFilters object is a fresh reference each render.
@@ -54,8 +79,8 @@ export function AssistantChat({
   // renders live. A resumed thread passes a real id (stable, so no recreation); a fresh chat or the
   // dock passes none.
   const { messages, sendMessage, status, error, stop } = useChat({
-    ...(id ? { id } : {}),
-    messages: initialMessages,
+    ...(effectiveId ? { id: effectiveId } : {}),
+    messages: effectiveInitialMessages,
     transport,
   });
   const [input, setInput] = useState("");
@@ -69,6 +94,18 @@ export function AssistantChat({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, status]);
+
+  // Mirror the conversation into sessionStorage once each turn settles, so reopening the dock (or
+  // coming back from a place detail) restores it. Only settled states are written, which keeps this
+  // off the per-token streaming path; the server still persists completed turns independently.
+  useEffect(() => {
+    if (!persistKey || !effectiveId || busy) return;
+    try {
+      window.sessionStorage.setItem(persistKey, JSON.stringify({ id: effectiveId, messages }));
+    } catch {
+      // Storage full or unavailable: persistence is best-effort, the live chat is unaffected.
+    }
+  }, [persistKey, effectiveId, messages, busy]);
 
   // When the model calls setDashboardFilter and it resolves, apply the action by navigating the URL
   // filter contract. From the dashboard dock this updates the page in place; from the full-screen
