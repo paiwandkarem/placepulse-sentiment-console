@@ -25,7 +25,14 @@ function registerFamily(family: string, files: { file: string; weight: number }[
     .map(({ file, weight }) => ({ src: fontPath(file), fontWeight: weight }))
     .filter((source): source is { src: string; fontWeight: number } => Boolean(source.src));
   if (sources.length !== files.length) return false;
-  Font.register({ family, fonts: sources });
+  // We ship no italic cut. @react-pdf throws on an unresolved italic style ("Could not resolve font
+  // for Jakarta, fontWeight 400, fontStyle italic") rather than synthesising one, which fails the
+  // whole PDF. Registering each weight again as italic against the same upright file means an italic
+  // style renders upright instead of crashing — robust against any stray fontStyle: "italic".
+  const withItalic: { src: string; fontWeight: number; fontStyle?: "italic" }[] = sources.flatMap(
+    (source) => [source, { ...source, fontStyle: "italic" }],
+  );
+  Font.register({ family, fonts: withItalic });
   return true;
 }
 
