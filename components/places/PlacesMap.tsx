@@ -24,7 +24,7 @@ const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL;
 // The hover card for a place, built from the shared popup chrome.
 function placeInsight(properties: Record<string, unknown>): string {
   const category = properties.category ? escapeHtml(String(properties.category)) : undefined;
-  const rating = properties.rating ? Number(properties.rating).toFixed(1) : "—";
+  const rating = properties.rating ? Number(properties.rating).toFixed(1) : "-";
   const reviews = Number(properties.reviewsCount ?? 0).toLocaleString();
   const body = `<span style="color:#f59e0b">&#9733;</span> ${rating} &middot; ${reviews} reviews
     <div style="font-size:10px;color:#9ca3af;margin-top:4px">Click to open</div>`;

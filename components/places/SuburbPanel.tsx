@@ -86,10 +86,10 @@ export function SuburbPanel({ suburb, onClear }: { suburb: string; onClear: () =
             </div>
 
             {overview.working.length > 0 && (
-              <DriverList title="What is working" drivers={overview.working} color="text-emerald-700" valueKey="positivePct" />
+              <DriverList title="What's working" drivers={overview.working} color="text-emerald-700" valueKey="positivePct" />
             )}
             {overview.notWorking.length > 0 && (
-              <DriverList title="Needs attention" drivers={overview.notWorking} color="text-rose-700" valueKey="negativePct" />
+              <DriverList title="What's not working" drivers={overview.notWorking} color="text-rose-700" valueKey="negativePct" />
             )}
 
             <Link

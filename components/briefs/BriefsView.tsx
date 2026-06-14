@@ -8,7 +8,7 @@ import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import type { BriefJob } from "@/lib/briefs/repository";
 import type { BriefContent } from "@/lib/briefs/schema";
 
-const OVERALL = "Overall";
+const ALL_CATEGORIES = "All categories";
 
 // The briefs surface: a generate form and a list of past briefs. Generation is asynchronous on the
 // server (the POST returns a running job), so the list polls for status while anything is running
@@ -35,7 +35,7 @@ export function BriefsView({
 }) {
   const [briefs, setBriefs] = useState<BriefJob[]>(initialBriefs);
   const [area, setArea] = useState("");
-  const [category, setCategory] = useState(OVERALL);
+  const [category, setCategory] = useState(ALL_CATEGORIES);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +75,7 @@ export function BriefsView({
       const response = await fetch("/api/briefs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ areaName: trimmed, category: category === OVERALL ? undefined : category }),
+        body: JSON.stringify({ areaName: trimmed, category: category === ALL_CATEGORIES ? undefined : category }),
       });
       if (!response.ok) {
         setError("Could not start the brief. Try again.");
@@ -83,7 +83,7 @@ export function BriefsView({
       }
       track("brief_generated", { suburb: trimmed, category });
       setArea("");
-      setCategory(OVERALL);
+      setCategory(ALL_CATEGORIES);
       await refresh();
     } finally {
       setSubmitting(false);
@@ -111,7 +111,7 @@ export function BriefsView({
           <span className="mb-1 block text-xs font-semibold text-gray-600">Category</span>
           <SearchableDropdown
             value={category}
-            options={[OVERALL, ...categories]}
+            options={[ALL_CATEGORIES, ...categories]}
             onSelect={setCategory}
             placeholder="Search categories"
             triggerClassName="h-10 w-full"
