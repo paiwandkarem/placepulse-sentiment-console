@@ -64,7 +64,9 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const sessionId = body.id ?? crypto.randomUUID();
-  const surface: ChatSurface = body.surface === "dock" ? "dock" : "assistant";
+  // Every conversation is saved as a listed thread. A turn from the dashboard dock is auto-promoted
+  // the same way, but tagged origin = 'dock' so the thread list can mark it "From dashboard".
+  const origin = body.surface === "dock" ? "dock" : null;
   const modelMessages = await convertToModelMessages(messages);
 
   // When the dock sends the current dashboard selection, fold it into the system prompt so an
@@ -90,7 +92,7 @@ export async function POST(request: Request): Promise<Response> {
       // path. after() lets the work finish on Fluid Compute once the response has been sent.
       after(async () => {
         try {
-          await saveChatSession({ id: sessionId, userId, surface, messages: finalMessages, filters: body.filters });
+          await saveChatSession({ id: sessionId, userId, surface: "assistant", origin, messages: finalMessages, filters: body.filters });
         } catch (error) {
           console.error("Failed to persist chat session", sessionId, error);
         }
