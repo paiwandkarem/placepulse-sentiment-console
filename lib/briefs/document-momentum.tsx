@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   moveTheme: { fontSize: 9.5, fontWeight: 700, color: PALETTE.ink, marginBottom: 1 },
   moveDetail: { fontSize: 9, color: PALETTE.slate, lineHeight: 1.4 },
   moveFig: { fontFamily: FONT_MONO, fontSize: 8, color: PALETTE.muted, marginTop: 2 },
-  moveEmpty: { fontSize: 9, color: PALETTE.faint, fontStyle: "italic" },
+  moveEmpty: { fontSize: 9, color: PALETTE.faint },
 
   // Actions
   actionCard: { flexDirection: "row", gap: 10, borderWidth: 0.7, borderColor: PALETTE.hairline, borderLeftWidth: 3, borderLeftColor: PALETTE.brand, borderRadius: 8, padding: 11, marginBottom: 7, backgroundColor: "#ffffff" },
