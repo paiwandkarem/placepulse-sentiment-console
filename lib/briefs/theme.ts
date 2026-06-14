@@ -35,6 +35,11 @@ const SANS_READY = registerFamily("Jakarta", [
   { file: "PlusJakartaSans-Bold.ttf", weight: 700 },
 ]);
 
+// Never hyphenate. react-pdf's default callback breaks words and figures mid-token at a line end
+// ("Broad-beach", "28-%"), which reads badly in the narrow comparison columns and the cover title.
+// Returning the whole word means lines wrap only at spaces.
+Font.registerHyphenationCallback((word) => [word]);
+
 // The platform is Plus Jakarta Sans only, so the brief uses it everywhere. FONT_MONO is kept as a
 // name for numeric styles but points at the same family, so numerics no longer clash with the app.
 export const FONT_SANS = SANS_READY ? "Jakarta" : "Helvetica";

@@ -48,9 +48,10 @@ const styles = StyleSheet.create({
   colHead: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
   colDot: { width: 9, height: 9, borderRadius: 3 },
   colName: { fontFamily: FONT_SANS, fontSize: 11, fontWeight: 700, color: PALETTE.ink },
-  colBig: { fontFamily: FONT_MONO, fontSize: 24, fontWeight: 500, color: PALETTE.ink },
-  colBigUnit: { fontFamily: FONT_MONO, fontSize: 11, color: PALETTE.muted },
-  badge: { alignSelf: "flex-start", borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6, marginTop: 4, marginBottom: 6 },
+  bigRow: { flexDirection: "row", alignItems: "flex-end", gap: 2, marginTop: 2, marginBottom: 7 },
+  colBig: { fontFamily: FONT_MONO, fontSize: 24, fontWeight: 500, color: PALETTE.ink, lineHeight: 1 },
+  colBigUnit: { fontFamily: FONT_MONO, fontSize: 11, color: PALETTE.muted, marginBottom: 3 },
+  badge: { alignSelf: "flex-start", borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6, marginBottom: 7 },
   badgeText: { fontFamily: FONT_SANS, fontSize: 7.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 },
   colMeta: { fontSize: 8.5, color: PALETTE.muted, marginTop: 2 },
 
@@ -266,10 +267,10 @@ function SuburbColumn({ suburb, color }: { suburb: ComparisonSuburb; color: stri
         <View style={[styles.colDot, { backgroundColor: color }]} />
         <Text style={styles.colName}>{suburb.areaName}</Text>
       </View>
-      <Text style={styles.colBig}>
-        {suburb.satisfaction100.toFixed(0)}
+      <View style={styles.bigRow}>
+        <Text style={styles.colBig}>{suburb.satisfaction100.toFixed(0)}</Text>
         <Text style={styles.colBigUnit}>/100</Text>
-      </Text>
+      </View>
       <View style={[styles.badge, { backgroundColor: risk.soft }]}>
         <Text style={[styles.badgeText, { color: risk.color }]}>{risk.label}</Text>
       </View>
@@ -280,12 +281,12 @@ function SuburbColumn({ suburb, color }: { suburb: ComparisonSuburb; color: stri
       </Text>
       {suburb.topStrength ? (
         <Text style={[styles.colMeta, { marginTop: 5, color: PALETTE.brand }]}>
-          Leads on {suburb.topStrength.label} ({suburb.topStrength.pct.toFixed(0)}% positive)
+          Strongest: {suburb.topStrength.label}
         </Text>
       ) : null}
       {suburb.topWeakness ? (
         <Text style={[styles.colMeta, { color: PALETTE.negative }]}>
-          Weakest on {suburb.topWeakness.label} ({suburb.topWeakness.pct.toFixed(0)}% negative)
+          Weakest: {suburb.topWeakness.label}
         </Text>
       ) : null}
     </View>
