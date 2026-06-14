@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { track } from "@vercel/analytics";
 import { ArrowUp, Square } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
+import type { ChatSurface } from "@/lib/assistant/sessions";
 import { ToolResult } from "./ToolResult";
 
 // The shared assistant chat: message list, streaming tool timeline, and the composer. It is mounted
 // in two places (the dashboard dock and the full-screen page), so it owns the conversation but not
 // the chrome around it, the caller sizes it with className.
 //
-// useChat streams from /api/assistant over the transport below. There is no built-in input state in
-// this version of the SDK, so the composer is a plain controlled textarea that calls sendMessage.
-
-// One transport for the endpoint, created once rather than on every render.
-const transport = new DefaultChatTransport({ api: "/api/assistant" });
+// useChat streams from /api/assistant over the transport below. The transport carries the surface
+// (page vs dock) so a turn persists to the right kind of session; the chat id (a thread) is sent
+// automatically, so the page can resume a saved thread by passing its id and stored messages. There
+// is no built-in input state in this SDK version, so the composer is a controlled textarea.
 
 const SUGGESTIONS = [
   "How satisfied are visitors with Brisbane City?",
@@ -26,8 +26,29 @@ const SUGGESTIONS = [
   "Compare Fortitude Valley and South Brisbane",
 ];
 
-export function AssistantChat({ className }: { className?: string }) {
-  const { messages, sendMessage, status, error, stop } = useChat({ transport });
+export function AssistantChat({
+  className,
+  id,
+  initialMessages,
+  surface = "assistant",
+  contextFilters,
+}: {
+  className?: string;
+  id?: string;
+  initialMessages?: UIMessage[];
+  surface?: ChatSurface;
+  contextFilters?: { areaName?: string; category?: string };
+}) {
+  // One transport per surface, carrying the current dashboard selection when the dock provides it so
+  // the model can ground an ambiguous question in the live view. Memoised on a stable key, since the
+  // contextFilters object is a fresh reference each render.
+  const contextKey = contextFilters ? JSON.stringify(contextFilters) : "";
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/assistant", body: { surface, filters: contextFilters } }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [surface, contextKey],
+  );
+  const { messages, sendMessage, status, error, stop } = useChat({ id, messages: initialMessages, transport });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
