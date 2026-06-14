@@ -1,19 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { MessagesSquare, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 import type { ChatThreadSummary } from "@/lib/assistant/sessions";
 
+dayjs.extend(relativeTime);
+
 // The conversation list shared by the desktop sidebar and the mobile sheet: a "New chat" action and
-// the user's saved threads, each a link that resumes it. Deleting a thread removes it and refreshes
-// the list, leaving the current view if the open thread was the one deleted. The dock has no
-// equivalent: its chats are ephemeral and never listed (they are stored under the 'dock' surface,
-// which this list excludes).
+// the user's threads, grouped by recency (Today / Yesterday / Previous 7 days / Older) with a
+// relative "x ago" timestamp on each, so the rail reads in time order. Dashboard-dock conversations
+// are auto-promoted into this list and marked "From dashboard". Deleting a thread removes it and
+// refreshes, leaving the current view if the open thread was the one deleted.
 //
 // onNavigate lets the mobile sheet close itself when the user picks a thread or starts a new chat.
+
+const BUCKETS = ["Today", "Yesterday", "Previous 7 days", "Older"] as const;
+type Bucket = (typeof BUCKETS)[number];
+
+function bucketOf(updatedAt: string): Bucket {
+  const when = dayjs(updatedAt);
+  const startOfToday = dayjs().startOf("day");
+  if (when.isAfter(startOfToday)) return "Today";
+  if (when.isAfter(startOfToday.subtract(1, "day"))) return "Yesterday";
+  if (when.isAfter(startOfToday.subtract(7, "day"))) return "Previous 7 days";
+  return "Older";
+}
+
 export function ThreadList({
   threads,
   activeId,
@@ -25,6 +42,21 @@ export function ThreadList({
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Group the (already most-recent-first) threads into recency buckets, preserving order within each.
+  const groups = useMemo(() => {
+    const byBucket = new Map<Bucket, ChatThreadSummary[]>();
+    for (const thread of threads) {
+      const bucket = bucketOf(thread.updatedAt);
+      const list = byBucket.get(bucket);
+      if (list) list.push(thread);
+      else byBucket.set(bucket, [thread]);
+    }
+    return BUCKETS.filter((bucket) => byBucket.has(bucket)).map((bucket) => ({
+      bucket,
+      items: byBucket.get(bucket)!,
+    }));
+  }, [threads]);
 
   async function remove(id: string) {
     setDeleting(id);
@@ -49,7 +81,7 @@ export function ThreadList({
           New chat
         </Link>
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-2 pb-3" aria-label="Conversations">
+      <nav className="flex-1 overflow-y-auto px-2 pb-3" aria-label="Conversations">
         {threads.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-3 py-10 text-center">
             <MessagesSquare className="h-6 w-6 text-gray-300" aria-hidden="true" />
@@ -57,45 +89,58 @@ export function ThreadList({
             <p className="text-[11px] text-gray-400">Ask a question to start your first chat.</p>
           </div>
         ) : (
-          threads.map((thread) => {
-            const active = thread.id === activeId;
-            return (
-              <div
-                key={thread.id}
-                className={cn(
-                  "group flex items-center gap-1 rounded-xl px-2",
-                  active ? "border-l-2 border-emerald-600 bg-gray-100" : "hover:bg-gray-50",
-                )}
-              >
-                <Link
-                  href={`/assistant?thread=${thread.id}`}
-                  onClick={onNavigate}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "min-w-0 flex-1 py-2 text-sm",
-                    active ? "font-medium text-gray-900" : "text-gray-700",
-                  )}
-                  title={thread.title ?? "Untitled chat"}
-                >
-                  <span className="block truncate">{thread.title ?? "Untitled chat"}</span>
-                  {thread.origin === "dock" && (
-                    <span className="mt-0.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                      From dashboard
-                    </span>
-                  )}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => remove(thread.id)}
-                  disabled={deleting === thread.id}
-                  aria-label={`Delete conversation: ${thread.title ?? "Untitled chat"}`}
-                  className="shrink-0 rounded p-1 text-gray-300 opacity-0 transition hover:text-rose-600 group-hover:opacity-100 disabled:opacity-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
+          groups.map(({ bucket, items }) => (
+            <div key={bucket} className="mb-1">
+              <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                {bucket}
+              </p>
+              <div className="space-y-0.5">
+                {items.map((thread) => {
+                  const active = thread.id === activeId;
+                  const title = thread.title ?? "Untitled chat";
+                  return (
+                    <div
+                      key={thread.id}
+                      className={cn(
+                        "group flex items-center gap-1 rounded-xl px-2",
+                        active ? "border-l-2 border-emerald-600 bg-gray-100" : "hover:bg-gray-50",
+                      )}
+                    >
+                      <Link
+                        href={`/assistant?thread=${thread.id}`}
+                        onClick={onNavigate}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "min-w-0 flex-1 py-2 text-sm",
+                          active ? "font-medium text-gray-900" : "text-gray-700",
+                        )}
+                        title={title}
+                      >
+                        <span className="block truncate">{title}</span>
+                        <span className="mt-0.5 flex items-center gap-1.5">
+                          {thread.origin === "dock" && (
+                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                              From dashboard
+                            </span>
+                          )}
+                          <span className="text-[10px] text-gray-400">{dayjs(thread.updatedAt).fromNow()}</span>
+                        </span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => remove(thread.id)}
+                        disabled={deleting === thread.id}
+                        aria-label={`Delete conversation: ${title}`}
+                        className="shrink-0 rounded p-1 text-gray-300 opacity-0 transition hover:text-rose-600 group-hover:opacity-100 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </nav>
     </>
