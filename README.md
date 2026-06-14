@@ -9,7 +9,15 @@ The project intentionally covers both assessment paths:
 * **Frontend Cloud**: a dynamic analytics dashboard with server rendering, client-side interactivity, caching, revalidation and Core Web Vitals discipline.
 * **AI Cloud**: a Vercel AI SDK assistant with grounded tool use over the live data, generative tool cards, durable AI-generated PDF briefs, and grounding evals.
 
-> **Reviewer access:** the deployed app is sign-in gated with Clerk. Create an account on the deployed URL (development instance, any email works) to explore every surface.
+> **Reviewer access:** the deployed app is sign-in gated with Clerk. Create an account on the deployed URL (development instance, any email works) to explore every surface. The Clerk development instance is a deliberate choice for review: it lets any reviewer self-serve a sign-in with no allow-listing, where a production instance would require a custom domain with DNS-verified Clerk subdomains. Swapping to production is a keys-and-DNS change, not a code change.
+
+## Business value
+
+PlacePulse is built for place-based teams — local government, tourism bodies, precinct and multi-site operators — who have to act on customer sentiment across Queensland suburbs but live in the gap between a flood of Google reviews and a defensible decision.
+
+Today that gap is closed by hand: pulling reviews, pivoting spreadsheets, and arguing over which numbers are real. PlacePulse turns those reviews into a fast, filterable dashboard and a grounded assistant, so an analyst goes from days in spreadsheets to answers in minutes.
+
+Every AI figure is auditable back to the underlying review data through the tool-call timeline, so the answer is defensible, not just plausible. Chat can drive the dashboard filters and ship a ready-to-send PDF brief, moving a team from question to evidence to deliverable in one pass.
 
 ## Current status
 
@@ -21,7 +29,7 @@ Built commit by commit. Every core surface is now built:
 | Assistant (docked copilot) | Built | Streaming grounded chat that can drive the dashboard filters by chat; generative tool cards over an audit timeline. |
 | Assistant (full-screen page, `/assistant`) | Built | Same engine with per-user, resumable conversation threads. |
 | Briefs (`/briefs`) | Built | Durable AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum); suburbs chosen on a map. |
-| Evals | Built | Grounding checks (right tool called, figures match the data, out-of-coverage declines), stored in `eval_runs`, runnable in CI. |
+| Evals | Built | Grounding suite across every tool tier plus refusal and dashboard-action cases, with an independent LLM faithfulness judge; stored in `eval_runs`, runnable via `npm run evals` (or `ci:full`). |
 | Places explorer (`/places`) | Built | Queensland business directory, place detail slide-overs with imagery, and a clustered point map over the POI dataset. |
 | Auth | Built | Clerk via the Vercel Marketplace; the app is sign-in gated and AI/brief data is scoped per user. |
 
@@ -38,7 +46,7 @@ Local government, tourism, retail and precinct teams need to answer questions li
 * What themes are driving negative sentiment?
 * Which review evidence supports the trend?
 
-PlacePulse turns suburb-level sentiment data into a fast dashboard and a grounded conversational assistant, with briefing and place-level exploration on the roadmap.
+PlacePulse turns suburb-level sentiment data into a fast dashboard and a grounded conversational assistant, with executive PDF briefs and place-level exploration alongside.
 
 ## Target users
 
@@ -69,7 +77,7 @@ sentiment_suburbs   suburb x category x month aggregates
                     -> the dashboard, and the assistant's suburb tools
 
 poi_* (about 27M    individual Queensland businesses, reviews, themes and words
-rows)               -> the assistant's place tools, and the planned Places explorer
+rows)               -> the assistant's place tools, and the Places explorer
 ```
 
 The dashboard answers "what" (aggregate and visual). The place data answers "why and show me" (real businesses and real review quotes) through the assistant. The whole product is scoped to Queensland, because the place data is Queensland only.
@@ -120,7 +128,8 @@ The app is deployed on Vercel and uses Vercel-native patterns:
 * **Vercel Blob** to store the generated brief PDFs
 * **Clerk via the Vercel Marketplace** for authentication, with `proxy.ts` (the Next 16 middleware convention, Node runtime) gating the app and the AI write routes
 * `after()` to run the slow brief generation off the response path so the render never blocks the request
-* Vercel Analytics and Speed Insights for observability
+* per-user rate limiting on the two money-spending endpoints (the assistant and brief generation), so a signed-in user cannot spam expensive model calls
+* observability through Vercel Analytics and Speed Insights for Core Web Vitals, the AI Gateway dashboard for model traffic, latency and cost, and the `eval_runs` table for grounding history
 
 The Queensland boundary GeoJSON is a static asset served from the CDN (pointed at by an environment variable), not the app bundle.
 
@@ -194,23 +203,24 @@ The assistant answers only from tool output. It does not answer from memory and 
 
 ### How the assistant works
 
-* **Model access** through the Vercel AI Gateway, configured in one place (`lib/ai/model.ts`), defaulting to `anthropic/claude-sonnet-4-6`.
-* **A streaming Route Handler** (`app/api/assistant/route.ts`) runs `streamText` with a bounded multi-step tool loop and returns the UI-message stream that the client consumes.
+* **Model access** through the Vercel AI Gateway, configured in one place (`lib/ai/model.ts`) as a per-role map of a primary and a fallback model. The assistant runs on `anthropic/claude-sonnet-4-6` (strong tool use at interactive latency) and falls back to Haiku 4.5; briefs and the eval judge run on Opus 4.8 (long-form quality, off the interactive path) and fall back to Sonnet. Selecting or swapping a model is a one-line change, never a call-site edit.
+* **Fallback and retries**: transient upstream errors are retried (`MAX_RETRIES`); on a hard primary-model failure, the non-streaming calls (briefs, judge) fall back to the role's secondary model via `withModelFallback`, so a model outage degrades gracefully rather than failing the request.
+* **A streaming Route Handler** (`app/api/assistant/route.ts`) runs `streamText` with a bounded multi-step tool loop, a per-user rate limit, and returns the UI-message stream that the client consumes.
 * **Grounded typed tools** (`lib/assistant/tools.ts`): zod-validated read tools over the same service and repository layers the dashboard uses, so the model can only surface figures that already exist in Neon. Suburb tools cover sentiment, trend, drivers, category breakdown and comparison; place tools cover individual businesses, their themes and real review quotes.
 * **A grounding contract** (`lib/assistant/systemPrompt.ts`): answer only from tool results, name the figure and the suburb or place it came from, and never invent a number, suburb or business.
 * **Persistence** (`lib/assistant/sessions.ts`): each completed turn is written to `chat_sessions` after the response is delivered, so the write never sits on the response path.
 * **Rendering**: assistant markdown (including tables) renders with **Streamdown**, and a tool-call timeline shows each tool, its input and its output so every answer is auditable.
 * **Generative UI**: tool results also render as rich cards (suburb KPIs, an SVG trend sparkline, place cards with locator maps, a head-to-head compare) above the audit timeline.
 * **Driving the product**: a `setDashboardFilter` tool returns a typed action the dashboard applies to its URL filters, so a chat turn changes what the dashboard shows.
-* **Threads**: the full-screen page lists and resumes past conversations (`useChat` id plus stored messages), scoped per user; the dock stays contextual and ephemeral.
+* **Threads**: the full-screen page lists and resumes past conversations (`useChat` id plus stored messages), scoped per user. The dashboard dock stays contextual and out of that saved thread list, but persists its conversation within the browser session, so navigating to a place detail and back does not lose context, and it can be restarted from its header.
 
 ### Briefs
 
-`/briefs` generates executive PDF briefs in four report types over one pipeline: a schema-constrained `generateObject` call drafts the prose, `@react-pdf/renderer` renders the document, the PDF is stored in Vercel Blob, and the job is recorded in `brief_jobs`. Generation runs off the response path via `after()`, and the page polls the job to completion. The four types (overview, suburb comparison, category deep-dive, momentum) are a discriminated union over the shared runner, each with its own content schema and template. Suburbs are chosen on a map, with a satisfaction choropleth for the category deep-dive.
+`/briefs` generates executive PDF briefs in four report types over one pipeline: a schema-constrained `generateObject` call on Opus 4.8 (with fallback to Sonnet) drafts the prose, `@react-pdf/renderer` renders the document, the PDF is stored in Vercel Blob, and the job is recorded in `brief_jobs`. Generation runs off the response path via `after()`, the endpoint is rate-limited per user, and the page polls the job to completion. The four types (overview, suburb comparison, category deep-dive, momentum) are a discriminated union over the shared runner, each with its own content schema and template. Suburbs are chosen on a map, with a satisfaction choropleth for the category deep-dive.
 
 ### Evals
 
-`npm run evals` runs a grounding suite (`lib/evals/*`) against the assistant tools: the right tool is called, the cited figures match the data, real entities are used, and out-of-coverage questions decline. Each run is recorded in `eval_runs`, and the suite is wired into CI.
+`npm run evals` runs a grounding suite (`lib/evals/*`) against the live assistant path (real model, real tools): it spans every tool tier (suburb, place, dashboard-action) and asserts the right tool is called, the cited figures match the data, real entities are used, dashboard-drive requests actually apply, and both out-of-coverage and out-of-scope ("write a review") requests decline. The synthesis-heavy cases are additionally graded by an independent **LLM faithfulness judge** running on a stronger model than the assistant (Opus judging Sonnet), so no model is the sole judge of its own output. Each run is recorded in `eval_runs`. Evals are kept out of the default `ci` script (so CI makes no paid model calls) and run on demand or via `ci:full`; set `EVALS_REQUIRE_PASS=true` to gate a pipeline on them.
 
 ## Tech stack
 
@@ -230,12 +240,19 @@ The assistant answers only from tool output. It does not answer from memory and 
 ```txt
 app/
   api/
-    assistant/route.ts        streaming assistant endpoint
+    assistant/route.ts        streaming assistant endpoint (rate-limited)
+    assistant/threads/        per-user thread list and resume
+    briefs/route.ts           brief generation jobs (rate-limited)
     sentiment/route.ts        sentiment slice
     sentiment/trend/route.ts  trend series
     sentiment/compare/route.ts
+    sentiment/category-rank/route.ts
+    places/                   point and suburb endpoints for the explorer
     filters/route.ts          filter catalogue
     revalidate/route.ts       on-demand revalidation
+  assistant/page.tsx          full-screen assistant with threads
+  briefs/page.tsx             brief builder with map selection
+  places/                     places explorer and detail slide-overs
   layout.tsx
   loading.tsx
   page.tsx                    the dashboard
@@ -250,11 +267,14 @@ components/
   ui/                         Card, Button, Badge, Skeleton, Spinner
 
 lib/
-  ai/model.ts                 Gateway-backed model resolution
+  ai/model.ts                 Gateway-backed per-role models, fallback + retries
+  ratelimit.ts                per-user limiter for the AI endpoints
   assistant/
     tools.ts                  grounded typed read tools
     systemPrompt.ts           the grounding contract
     sessions.ts               chat_sessions persistence
+  briefs/                     brief pipeline, schemas and PDF templates
+  evals/                      grounding suite, cases and LLM judge
   db/
     client.ts                 Neon HTTP client
     schema.sql                aggregate and supporting tables
@@ -358,11 +378,12 @@ Open `http://localhost:3000`.
   "db:migrate": "tsx scripts/migrate.ts",
   "import:sentiment": "tsx scripts/import-sentiment-data.ts",
   "evals": "tsx scripts/run-evals.ts",
-  "ci": "npm run typecheck && npm run lint && npm run evals && npm run build"
+  "ci": "npm run typecheck && npm run lint && npm run build",
+  "ci:full": "npm run typecheck && npm run lint && npm run evals && npm run build"
 }
 ```
 
-The `evals` script runs the grounding suite in `lib/evals/*` against the assistant tools and records each run in `eval_runs`.
+The `evals` script runs the grounding suite in `lib/evals/*` against the assistant tools and records each run in `eval_runs`. The default `ci` script deliberately excludes evals so it makes no paid model calls; `ci:full` adds them for a pre-submission or release check.
 
 ## Deployment
 
@@ -387,7 +408,7 @@ PlacePulse is designed to show how sentiment intelligence can move from raw revi
 
 1. **Faster analysis**: move from suburb and category filters to sentiment drivers quickly.
 2. **Evidence-backed answers**: every assistant figure is read from a tool over the real data, with an audit timeline to prove it.
-3. **AI-assisted workflows**: the assistant (and the planned briefs) reduce manual analysis without bypassing the underlying data.
+3. **AI-assisted workflows**: the assistant and the PDF briefs reduce manual analysis without bypassing the underlying data.
 
 ## License
 
