@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
-import { model } from "@/lib/ai/model";
+import { model, MAX_RETRIES } from "@/lib/ai/model";
+import { rateLimit } from "@/lib/ratelimit";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
 import { assistantTools } from "@/lib/assistant/tools";
 import { saveChatSession, type ChatSurface } from "@/lib/assistant/sessions";
@@ -39,6 +40,17 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Sign in to use the assistant.", { status: 401 });
   }
 
+  // Clerk gates who can call this; the rate limiter gates how often, so a single signed-in user
+  // cannot spam expensive model calls. Checked before any model work so a throttled request never
+  // spends tokens.
+  const limit = rateLimit(`assistant:${userId}`, { limit: 30, windowMs: 60000 });
+  if (!limit.success) {
+    return new Response("Too many requests. Please slow down.", {
+      status: 429,
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
+  }
+
   let body: AssistantRequest;
   try {
     body = (await request.json()) as AssistantRequest;
@@ -68,6 +80,7 @@ export async function POST(request: Request): Promise<Response> {
     messages: modelMessages,
     tools: assistantTools,
     stopWhen: stepCountIs(8),
+    maxRetries: MAX_RETRIES,
   });
 
   return result.toUIMessageStreamResponse({
