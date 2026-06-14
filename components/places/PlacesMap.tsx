@@ -91,6 +91,8 @@ export function PlacesMap({
   onSelectPlace,
   selectedSuburb,
   selectedPlaceId,
+  flyToPlaceId,
+  flyToNonce,
 }: {
   points: PlacePoint[];
   fitKey: string;
@@ -100,6 +102,10 @@ export function PlacesMap({
   // shared near-black selected highlight.
   selectedSuburb?: string | null;
   selectedPlaceId?: string | null;
+  // Set (with an incrementing nonce) only when a place is chosen from the LIST, so the camera flies
+  // to it. A place clicked on the map already has the camera on it, so that path leaves these unset.
+  flyToPlaceId?: string | null;
+  flyToNonce?: number;
 }) {
   // Kept in refs so the map (created once) always calls the latest handlers without re-creating.
   const onSelectSuburbRef = useRef(onSelectSuburb);
@@ -349,6 +355,25 @@ export function PlacesMap({
         : [],
     });
   }, [selectedPlaceId, points, ready]);
+
+  // Fly to a place chosen from the list. Triggered by the nonce so re-picking the same place still
+  // flies. On wide screens the slide-over covers the right ~460px, so nudge the target left to keep
+  // the place centred in the visible map area. Map-point clicks never set these, so they don't fly.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !flyToPlaceId) return;
+    const place = points.find((candidate) => candidate.placeId === flyToPlaceId);
+    if (!place) return;
+    const modalOffset = window.innerWidth >= 640 ? -230 : 0;
+    map.flyTo({
+      center: [place.lon, place.lat],
+      zoom: Math.max(map.getZoom?.() ?? 0, 14),
+      offset: [modalOffset, 0],
+      duration: 800,
+    });
+    // Trigger only on a new list pick (the nonce); reading the latest id/points through the closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyToNonce, ready]);
 
   return (
     <div className="relative h-full w-full">

@@ -5,7 +5,7 @@ import { listAvailableFilters } from "@/lib/services/sentimentService";
 import { PlacesExplorer } from "@/components/places/PlacesExplorer";
 import { Modal } from "@/components/places/Modal";
 import { PlaceProfile } from "@/components/places/PlaceProfile";
-import { Spinner } from "@/components/ui/Spinner";
+import { PlaceProfileSkeleton } from "@/components/places/PlaceProfileSkeleton";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -47,13 +47,7 @@ export default async function PlacePage({ params, searchParams }: PageProps) {
     <>
       <PlacesExplorer categories={categories} areaNames={filters.areaNames} />
       <Modal closeHref={closeHref}>
-        <Suspense
-          fallback={
-            <div className="flex h-64 items-center justify-center">
-              <Spinner />
-            </div>
-          }
-        >
+        <Suspense fallback={<PlaceProfileSkeleton />}>
           <PlaceProfile placeId={decodeURIComponent(id)} reviewPage={reviewPage} />
         </Suspense>
       </Modal>

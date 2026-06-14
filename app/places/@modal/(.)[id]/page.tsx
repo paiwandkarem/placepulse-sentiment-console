@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Modal } from "@/components/places/Modal";
 import { PlaceProfile } from "@/components/places/PlaceProfile";
-import { Spinner } from "@/components/ui/Spinner";
+import { PlaceProfileSkeleton } from "@/components/places/PlaceProfileSkeleton";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -22,13 +22,7 @@ export default async function InterceptedPlace({ params, searchParams }: PagePro
 
   return (
     <Modal>
-      <Suspense
-        fallback={
-          <div className="flex h-64 items-center justify-center">
-            <Spinner />
-          </div>
-        }
-      >
+      <Suspense fallback={<PlaceProfileSkeleton />}>
         <PlaceProfile placeId={decodeURIComponent(id)} reviewPage={reviewPage} />
       </Suspense>
     </Modal>
