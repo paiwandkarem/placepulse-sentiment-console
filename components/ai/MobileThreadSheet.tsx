@@ -59,9 +59,9 @@ export function MobileThreadSheet({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close conversations"
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
             <ThreadList threads={threads} activeId={activeId} onNavigate={() => setOpen(false)} />

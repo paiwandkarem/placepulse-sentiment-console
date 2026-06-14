@@ -16,7 +16,7 @@ export function MapLegend({ items, className }: { items: LegendItem[]; className
       )}
     >
       {items.map((item) => (
-        <span key={item.label} className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600">
+        <span key={item.label} className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
           <span
             className="h-2.5 w-2.5 rounded-full"
             style={

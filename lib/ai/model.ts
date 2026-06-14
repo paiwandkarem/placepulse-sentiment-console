@@ -16,6 +16,9 @@ export const MODELS = {
   assistant: { primary: "anthropic/claude-sonnet-4-6", fallback: "anthropic/claude-haiku-4-5" },
   brief: { primary: "anthropic/claude-opus-4-8", fallback: "anthropic/claude-sonnet-4-6" },
   judge: { primary: "anthropic/claude-opus-4-8", fallback: "anthropic/claude-sonnet-4-6" },
+  // Auto-titling a new conversation: a few words, off the response path. Cheapest/fastest model so
+  // the title lands quickly after the first answer.
+  title: { primary: "anthropic/claude-haiku-4-5", fallback: "anthropic/claude-sonnet-4-6" },
 } as const;
 
 export type ModelRole = keyof typeof MODELS;

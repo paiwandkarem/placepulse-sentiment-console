@@ -24,9 +24,9 @@ export default function Loading() {
           ))}
         </div>
 
-        {/* Over-time chart */}
+        {/* Over-time chart (the chart card scales: shorter on phones, full height on desktop) */}
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-[360px] w-full" />
+        <Skeleton className="mb-8 h-[340px] w-full md:h-[400px]" />
 
         {/* Category breakdown */}
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
@@ -40,10 +40,10 @@ export default function Loading() {
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
         <Skeleton className="mb-8 h-[500px] w-full" />
 
-        {/* Distributions */}
+        {/* Distributions — match the components' responsive height exactly (h-80 on phones, 340 up) */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Skeleton className="h-[340px] w-full" />
-          <Skeleton className="h-[340px] w-full" />
+          <Skeleton className="h-80 w-full md:h-[340px]" />
+          <Skeleton className="h-80 w-full md:h-[340px]" />
         </div>
       </div>
     </>

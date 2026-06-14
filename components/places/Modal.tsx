@@ -19,13 +19,21 @@ export function Modal({ children, closeHref }: { children: React.ReactNode; clos
   const router = useRouter();
   const [shown, setShown] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const closingRef = useRef(false);
 
   // When intercepted (navigated from the explorer), close with a history pop so the @modal slot is
   // dismissed. When this is the page itself (a direct load or refresh of /places/[id]), there is no
   // entry to pop, so navigate to the explorer instead. Stable so the keydown effect runs once.
+  // The panel slides out first (toggling `shown`), then the route changes once the transition has
+  // played — so closing animates instead of popping, and double-invokes are ignored.
   const close = useCallback(() => {
-    if (closeHref) router.push(closeHref);
-    else router.back();
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setShown(false);
+    window.setTimeout(() => {
+      if (closeHref) router.push(closeHref);
+      else router.back();
+    }, 300);
   }, [closeHref, router]);
 
   useEffect(() => {
@@ -62,7 +70,7 @@ export function Modal({ children, closeHref }: { children: React.ReactNode; clos
           type="button"
           onClick={close}
           aria-label="Close place"
-          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-lg p-2.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>

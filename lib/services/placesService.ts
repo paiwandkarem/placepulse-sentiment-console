@@ -69,7 +69,7 @@ export type PlaceProfile = {
   words: PlaceWordTerm[];
 };
 
-export async function getPlaceProfile(placeId: string, reviewPage = 1): Promise<PlaceProfile | null> {
+async function loadPlaceProfile(placeId: string, reviewPage: number): Promise<PlaceProfile | null> {
   const detail = await placeDetail(placeId);
   if (!detail) return null;
 
@@ -80,4 +80,13 @@ export async function getPlaceProfile(placeId: string, reviewPage = 1): Promise<
   ]);
 
   return { detail, themes, reviews, words };
+}
+
+// A place profile is four queries against review data that barely changes intra-day, and the same
+// place is opened, closed and reopened constantly in the explorer — so cache it per place + review
+// page. Repeat opens are then instant and never re-hit Neon (faster slide-overs, lower DB load).
+const cachedPlaceProfile = unstable_cache(loadPlaceProfile, ["place-profile"], { revalidate: 600 });
+
+export async function getPlaceProfile(placeId: string, reviewPage = 1): Promise<PlaceProfile | null> {
+  return cachedPlaceProfile(placeId, reviewPage);
 }

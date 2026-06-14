@@ -34,6 +34,8 @@ export function AssistantChat({
   contextFilters,
   persistKey,
   onMessagesChange,
+  onFirstMessage,
+  onFirstTurnComplete,
 }: {
   className?: string;
   id?: string;
@@ -48,6 +50,12 @@ export function AssistantChat({
   // Notified with the current message count whenever it changes, so a host (the dock) can enable
   // actions like "open in assistant" only once there is a conversation to act on.
   onMessagesChange?: (count: number) => void;
+  // Called with the user's first message the moment it is sent (the chat started empty), so the
+  // assistant page can show the new thread in its list optimistically rather than after a refresh.
+  onFirstMessage?: (text: string) => void;
+  // Called once the first turn settles, with the question and the assistant's answer, so the page can
+  // generate a readable title for the new thread.
+  onFirstTurnComplete?: (question: string, answer: string) => void;
 }) {
   // Resolve the persisted session once, on the client, from sessionStorage: an existing {id, messages}
   // if the user already has a conversation in this tab, otherwise a fresh id and empty history. The
@@ -92,6 +100,10 @@ export function AssistantChat({
   const router = useRouter();
   // Tool calls already applied to the dashboard, so a re-render does not navigate again.
   const appliedFilterRef = useRef<Set<string>>(new Set());
+  // First-turn bookkeeping for the page's optimistic thread + title: set when the user sends into an
+  // empty chat, cleared once the title hook has fired so it runs at most once per new conversation.
+  const startedEmptyRef = useRef(false);
+  const titleFiredRef = useRef(false);
   const busy = status === "submitted" || status === "streaming";
 
   // Keep the latest content in view as it streams in.
@@ -115,6 +127,20 @@ export function AssistantChat({
   useEffect(() => {
     onMessagesChange?.(messages.length);
   }, [messages, onMessagesChange]);
+
+  // Once the first turn of a newly-started chat settles, hand the question and answer to the host so
+  // it can generate a readable title. Fires at most once.
+  useEffect(() => {
+    if (!startedEmptyRef.current || titleFiredRef.current || status !== "ready") return;
+    const textOf = (message: UIMessage) =>
+      message.parts.map((part) => (part.type === "text" ? part.text : "")).join(" ").trim();
+    const question = textOf(messages.find((message) => message.role === "user") ?? ({ parts: [] } as unknown as UIMessage));
+    const answer = textOf([...messages].reverse().find((message) => message.role === "assistant") ?? ({ parts: [] } as unknown as UIMessage));
+    if (question && answer) {
+      titleFiredRef.current = true;
+      onFirstTurnComplete?.(question, answer);
+    }
+  }, [status, messages, onFirstTurnComplete]);
 
   // When the model calls setDashboardFilter and it resolves, apply the action by navigating the URL
   // filter contract. From the dashboard dock this updates the page in place; from the full-screen
@@ -140,6 +166,11 @@ export function AssistantChat({
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     track("assistant_message");
+    // First message of an empty chat: tell the host so it can show the new thread immediately.
+    if (messages.length === 0) {
+      startedEmptyRef.current = true;
+      onFirstMessage?.(trimmed);
+    }
     sendMessage({ text: trimmed });
     setInput("");
   }
@@ -189,7 +220,10 @@ export function AssistantChat({
               <div key={message.id} className="space-y-2">
                 {message.parts.map((part, index) =>
                   part.type === "text" ? (
-                    <Streamdown key={index} className="text-sm leading-relaxed text-gray-800">
+                    <Streamdown
+                      key={index}
+                      className="text-sm leading-relaxed text-gray-800 [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
+                    >
                       {part.text}
                     </Streamdown>
                   ) : (
