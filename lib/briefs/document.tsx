@@ -165,6 +165,10 @@ function DriverChip({ label, color }: { label: string; color: string }) {
   );
 }
 
+// Real businesses in the suburb, rendered factually from the POI data (never model-authored), so the
+// brief names actual venues without risking an invented place.
+export type BriefPlace = { name: string; category: string; rating: number; reviewsCount: number };
+
 export function BriefDocument({
   content,
   meta,
@@ -172,6 +176,7 @@ export function BriefDocument({
   themeRows,
   quotes,
   keywords,
+  places,
   mapDataUri,
 }: {
   content: BriefContent;
@@ -180,6 +185,7 @@ export function BriefDocument({
   themeRows: BriefThemeRow[];
   quotes: BriefQuote[];
   keywords: BriefKeywords;
+  places: BriefPlace[];
   mapDataUri: string | null;
 }) {
   const risk = RISK_STYLE[meta.riskTier];
@@ -337,6 +343,28 @@ export function BriefDocument({
               </View>
             ))}
           </>
+        )}
+
+        {places.length > 0 && (
+          <View wrap={false}>
+            <Section title="Most-reviewed places" subtitle="The businesses drawing the most Google reviews in this suburb, with their rating and review volume. Read straight from the place data, not generated." />
+            <View style={styles.table}>
+              <View style={styles.thead}>
+                <Text style={[styles.th, { flex: 1 }]}>Place</Text>
+                <Text style={[styles.th, { width: 110 }]}>Category</Text>
+                <Text style={[styles.th, { width: 44, textAlign: "right" }]}>Rating</Text>
+                <Text style={[styles.th, { width: 52, textAlign: "right" }]}>Reviews</Text>
+              </View>
+              {places.map((place, index) => (
+                <View key={index} style={styles.trow}>
+                  <Text style={styles.tTheme}>{place.name}</Text>
+                  <Text style={{ width: 110, fontSize: 8, color: PALETTE.muted }}>{place.category}</Text>
+                  <Text style={styles.tNum}>{place.rating ? place.rating.toFixed(1) : "-"}</Text>
+                  <Text style={[styles.tNum, { width: 52 }]}>{place.reviewsCount.toLocaleString()}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         )}
 
         <Section title="What to do next" subtitle="Concrete actions that follow from the findings, each with a specific owner, threshold or timeframe." />
