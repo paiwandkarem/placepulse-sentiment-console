@@ -77,7 +77,14 @@ export function BriefsView({
     event.preventDefault();
     const picked = [...new Set(areas.map((entry) => entry.trim()).filter(Boolean))];
     const allValid = picked.every((entry) => areaSet.has(entry));
-    if (type === "comparison") {
+    const realCategory = category === ALL_CATEGORIES ? undefined : category;
+
+    if (type === "category") {
+      if (!realCategory) {
+        setError("Pick a category for the deep-dive.");
+        return;
+      }
+    } else if (type === "comparison") {
       if (picked.length < 2 || !allValid) {
         setError("Pick at least two Queensland suburbs to compare.");
         return;
@@ -86,14 +93,15 @@ export function BriefsView({
       setError("Pick a Queensland suburb from the list.");
       return;
     }
-    const areaNamesToSend = type === "comparison" ? picked.slice(0, 3) : [picked[0]];
+
+    const areaNamesToSend = type === "category" ? [] : type === "comparison" ? picked.slice(0, 3) : [picked[0]];
     setSubmitting(true);
     setError(null);
     try {
       const response = await fetch("/api/briefs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type, areaNames: areaNamesToSend, category: category === ALL_CATEGORIES ? undefined : category }),
+        body: JSON.stringify({ type, areaNames: areaNamesToSend, category: realCategory }),
       });
       if (!response.ok) {
         setError("Could not start the brief. Try again.");
@@ -141,8 +149,8 @@ export function BriefsView({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          {type === "comparison" ? (
+        <div className="space-y-3">
+          {type === "category" ? null : type === "comparison" ? (
             <div className="flex-1 space-y-2">
               <span className="block text-xs font-semibold text-gray-600">Suburbs to compare (2 to 3)</span>
               {areas.map((value, index) => (
@@ -189,29 +197,33 @@ export function BriefsView({
             </div>
           )}
 
-        <div className="sm:w-56">
-          <span className="mb-1 block text-xs font-semibold text-gray-600">Category</span>
-          <SearchableDropdown
-            value={category}
-            options={[ALL_CATEGORIES, ...categories]}
-            onSelect={setCategory}
-            placeholder="Search categories"
-            triggerClassName="h-10 w-full"
-          />
-        </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="sm:w-56">
+              <span className="mb-1 block text-xs font-semibold text-gray-600">
+                {type === "category" ? "Category (required)" : "Category"}
+              </span>
+              <SearchableDropdown
+                value={category}
+                options={[ALL_CATEGORIES, ...categories]}
+                onSelect={setCategory}
+                placeholder="Search categories"
+                triggerClassName="h-10 w-full"
+              />
+            </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
-        >
-          {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <FileText className="h-4 w-4" aria-hidden="true" />
-          )}
-          Generate brief
-        </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <FileText className="h-4 w-4" aria-hidden="true" />
+              )}
+              Generate brief
+            </button>
+          </div>
         </div>
       </form>
       {error && <p className="-mt-6 text-sm text-rose-600">{error}</p>}

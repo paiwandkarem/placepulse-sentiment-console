@@ -321,6 +321,59 @@ export async function getCategoryBreakdown(filters: {
   });
 }
 
+export type SuburbCategoryRank = {
+  areaName: string;
+  satisfaction100: number;
+  totalReviews: number;
+  positivePct: number;
+  negativePct: number;
+};
+
+// Queensland suburbs ranked by satisfaction for one category, at that category's latest month. The
+// inverse of getCategoryBreakdown (which ranks categories within one suburb): this ranks suburbs for
+// one category, to back the category deep-dive brief. Scoped to QLD via qld_suburbs and floored at a
+// minimum review count so a tiny sample cannot top the list.
+export async function rankSuburbsForCategory(
+  category: string,
+  opts: { minReviews?: number; limit?: number } = {},
+): Promise<{ date: string | null; suburbs: SuburbCategoryRank[] }> {
+  const minReviews = opts.minReviews ?? 20;
+  const limit = Math.min(200, Math.max(1, opts.limit ?? 60));
+
+  // Cast to text so the driver returns a clean "YYYY-MM-DD" string. A bare max(date) comes back as a
+  // JS Date, whose String() form ("... GMT+1000 ...") then breaks dayjs parsing downstream.
+  const dateRows = await sql`
+    select max(date)::text as d
+    from sentiment_suburbs
+    where agg_type = ${MONTHLY_CATEGORY_AGG} and category = ${category}
+  `;
+  const date = dateRows[0]?.d ? String(dateRows[0].d) : null;
+  if (!date) return { date: null, suburbs: [] };
+
+  const rows = await sql`
+    select area_name, overall_satisfaction_100, total_reviews, positive_pct, negative_pct
+    from sentiment_suburbs
+    where agg_type = ${MONTHLY_CATEGORY_AGG}
+      and category = ${category}
+      and date = ${date}
+      and total_reviews >= ${minReviews}
+      and area_name in (select name from qld_suburbs)
+    order by overall_satisfaction_100 desc nulls last
+    limit ${limit}
+  `;
+
+  return {
+    date,
+    suburbs: rows.map((row) => ({
+      areaName: String(row.area_name),
+      satisfaction100: toNumber(row.overall_satisfaction_100),
+      totalReviews: toNumber(row.total_reviews),
+      positivePct: toNumber(row.positive_pct),
+      negativePct: toNumber(row.negative_pct),
+    })),
+  };
+}
+
 // The time series for one area/category across every available date. Selects only the
 // columns the trend chart needs rather than the full row.
 export async function getTrend(

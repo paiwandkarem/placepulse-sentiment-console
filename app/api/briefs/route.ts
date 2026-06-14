@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { createBriefJob, listBriefJobs } from "@/lib/briefs/repository";
-import { runBriefJob, runComparisonBriefJob } from "@/lib/briefs/service";
+import { runBriefJob, runCategoryBriefJob, runComparisonBriefJob, runMomentumBriefJob } from "@/lib/briefs/service";
 import { BRIEF_TYPES } from "@/lib/briefs/schema";
 
 // Brief generation is slow (a schema-constrained model draft plus a PDF render), so it runs after
@@ -17,7 +17,7 @@ export const maxDuration = 120;
 // category. areaNames is the general shape; comparison (B4) will use more than one.
 const bodySchema = z.object({
   type: z.enum(BRIEF_TYPES).default("overview"),
-  areaNames: z.array(z.string().min(1)).min(1).max(3),
+  areaNames: z.array(z.string().min(1)).max(3).default([]),
   category: z.string().min(1).optional(),
 });
 
@@ -34,13 +34,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const { type, areaNames, category } = parsed.data;
-
-  // overview and comparison are wired; category deep-dive and momentum are gated here until B5. The UI
-  // also disables them, so this is defence in depth.
-  if (type !== "overview" && type !== "comparison") {
-    return new Response("That brief type is not available yet.", { status: 400 });
-  }
-
   const id = nanoid();
 
   if (type === "comparison") {
@@ -54,7 +47,29 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
+  if (type === "category") {
+    if (!category) {
+      return new Response("Pick a category for the deep-dive.", { status: 400 });
+    }
+    const title = `${category}: Queensland category deep-dive`;
+    await createBriefJob({ id, userId, type, title, filters: { category } });
+    after(() => runCategoryBriefJob(id, { category }));
+    return Response.json({ id, status: "running", title }, { status: 202 });
+  }
+
+  // overview and momentum both work from a single suburb (plus an optional category).
   const areaName = areaNames[0];
+  if (!areaName) {
+    return new Response("Pick a Queensland suburb.", { status: 400 });
+  }
+
+  if (type === "momentum") {
+    const title = `${areaName}${category ? `: ${category}` : ""} momentum`;
+    await createBriefJob({ id, userId, type, title, filters: { areaName, category: category ?? null } });
+    after(() => runMomentumBriefJob(id, { areaName, category }));
+    return Response.json({ id, status: "running", title }, { status: 202 });
+  }
+
   const title = category ? `${areaName}: ${category} sentiment brief` : `${areaName} sentiment brief`;
   await createBriefJob({ id, userId, type, title, filters: { areaName, category: category ?? null } });
   after(() => runBriefJob(id, { areaName, category }));
