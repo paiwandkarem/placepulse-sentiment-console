@@ -37,12 +37,13 @@ function toBriefJob(row: DbRow): BriefJob {
 
 export async function createBriefJob(input: {
   id: string;
+  userId: string;
   title: string;
   filters: { areaName: string; category: string | null };
 }): Promise<void> {
   await sql`
-    insert into brief_jobs (id, status, title, filters)
-    values (${input.id}, 'running', ${input.title}, ${JSON.stringify(input.filters)}::jsonb)
+    insert into brief_jobs (id, user_id, status, title, filters)
+    values (${input.id}, ${input.userId}, 'running', ${input.title}, ${JSON.stringify(input.filters)}::jsonb)
   `;
 }
 
@@ -67,10 +68,11 @@ export async function failBriefJob(input: { id: string; error: string }): Promis
   `;
 }
 
-export async function listBriefJobs(limit = 20): Promise<BriefJob[]> {
+export async function listBriefJobs(userId: string, limit = 20): Promise<BriefJob[]> {
   const rows = (await sql`
     select id, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
     from brief_jobs
+    where user_id = ${userId}
     order by created_at desc
     limit ${limit}
   `) as DbRow[];
@@ -78,16 +80,19 @@ export async function listBriefJobs(limit = 20): Promise<BriefJob[]> {
 }
 
 // Delete a brief and return its stored PDF URL (if any) so the caller can remove the Blob too.
-export async function deleteBriefJob(id: string): Promise<string | null> {
-  const rows = (await sql`delete from brief_jobs where id = ${id} returning pdf_blob_url`) as DbRow[];
+export async function deleteBriefJob(id: string, userId: string): Promise<string | null> {
+  // Scoped by user_id as well as id so one user can never delete another's brief.
+  const rows = (await sql`
+    delete from brief_jobs where id = ${id} and user_id = ${userId} returning pdf_blob_url
+  `) as DbRow[];
   return (rows[0]?.pdf_blob_url as string | null) ?? null;
 }
 
-export async function getBriefJob(id: string): Promise<BriefJob | null> {
+export async function getBriefJob(id: string, userId: string): Promise<BriefJob | null> {
   const rows = (await sql`
     select id, status, title, filters, content, pdf_blob_url, error, created_at, pdf_generated_at
     from brief_jobs
-    where id = ${id}
+    where id = ${id} and user_id = ${userId}
     limit 1
   `) as DbRow[];
   return rows[0] ? toBriefJob(rows[0]) : null;
