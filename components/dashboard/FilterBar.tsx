@@ -16,12 +16,12 @@ import type { FilterCatalogue, RequiredSentimentFilters } from "@/lib/types";
 // kept identical to the Places explorer so the unfiltered default reads the same across surfaces.
 const ALL_CATEGORIES = "All categories";
 
-// Horizontal filter strip: Area, map toggle, Category. There is no period control: the
-// dashboard always shows the latest month as the snapshot and the full trend over time. The
-// category control switches between the overall aggregate and a single category, which also
-// picks the agg_type family. Every change writes the selection to the URL and the server
-// re-renders, so the view stays shareable. While a navigation is pending the controls disable so
-// rapid re-clicks cannot stack requests.
+// Filter strip: Suburb, a map toggle, and Category. There is no period control: the dashboard always
+// shows the latest month as the snapshot and the full trend over time. The category control switches
+// between the overall aggregate and a single category, which also picks the agg_type family. Every
+// change writes the selection to the URL and the server re-renders, so the view stays shareable.
+// While a navigation is pending the controls disable so rapid re-clicks cannot stack requests. The
+// controls stack full-width on phones and become an inline row from the sm breakpoint up.
 export function FilterBar({
   catalogue,
   selected,
@@ -79,6 +79,7 @@ export function FilterBar({
             options={catalogue.areaNames}
             disabled={isPending}
             placeholder="Search suburbs"
+            triggerClassName="w-full sm:w-auto"
             onSelect={(value) => {
               track("dashboard_filter_changed", { kind: "suburb", value });
               setParams({ areaName: value });
@@ -89,7 +90,7 @@ export function FilterBar({
         <button
           type="button"
           className={cn(
-            "h-9 shrink-0 rounded-lg border border-gray-200 p-2 text-gray-700 transition-colors hover:bg-gray-100",
+            "flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:w-auto sm:shrink-0",
             mapOpen && "bg-gray-900 text-white hover:bg-gray-900",
           )}
           aria-label={mapOpen ? "Close map panel" : "Open map panel"}
@@ -98,6 +99,7 @@ export function FilterBar({
           onClick={toggleMap}
         >
           <Map className="h-4 w-4" aria-hidden="true" />
+          <span className="text-sm font-medium sm:hidden">Map</span>
         </button>
 
         <Field label="Category">
@@ -106,6 +108,7 @@ export function FilterBar({
             options={[ALL_CATEGORIES, ...catalogue.categories]}
             disabled={isPending}
             placeholder="Search categories"
+            triggerClassName="w-full sm:w-auto"
             onSelect={selectCategory}
           />
         </Field>
@@ -123,8 +126,8 @@ export function FilterBar({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-fit shrink-0 items-center gap-2">
-      <label className="text-xs font-semibold tracking-wide text-gray-700">{label}</label>
+    <div className="flex w-full items-center gap-2 sm:w-auto sm:min-w-fit sm:shrink-0">
+      <label className="w-16 shrink-0 text-xs font-semibold tracking-wide text-gray-700 sm:w-auto">{label}</label>
       {children}
     </div>
   );

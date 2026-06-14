@@ -57,7 +57,7 @@ export function SentimentLabelDistribution({ record }: { record: SentimentRecord
   const hasData = buckets.some((b) => b.pct > 0);
 
   return (
-    <div className="flex h-[340px] flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm font-sans">
+    <div className="flex h-80 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm font-sans md:h-[340px]">
       <div className="mb-2 flex items-center gap-5 px-1">
         <div className="inline-flex items-baseline gap-1.5">
           <ThumbsUp className="h-5 w-5 self-center text-emerald-500" aria-hidden="true" />

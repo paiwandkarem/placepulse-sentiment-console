@@ -354,7 +354,7 @@ export function SentimentDrivers({
 
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         <TabPill side="working" count={buckets.working.length} active={activeTab === "working"} onClick={() => selectTab("working")} />
         <TabPill
           side="not_working"
