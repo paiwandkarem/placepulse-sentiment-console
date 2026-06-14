@@ -4,6 +4,7 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bot, ChevronLeft, ChevronRight, FileText, Gauge, HelpCircle, LayoutDashboard, MapPin } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/ui/sentiment";
 
 // Application shell: a fixed, collapsible left sidebar with the main content offset beside it
@@ -37,6 +38,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       localStorage.setItem("ppSidebarCollapsed", next ? "1" : "0");
       return next;
     });
+  }
+
+  // The auth pages render their own centred card; skip the sidebar chrome there so a signed-out
+  // visitor sees only the sign-in form.
+  if (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) {
+    return <>{children}</>;
   }
 
   return (
@@ -92,6 +99,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-gray-100 p-3">
+          <div className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2">
+            <UserButton />
+            <span className="text-sm font-medium text-gray-600">Account</span>
+          </div>
           <a
             href="https://github.com/paiwandkarem/placepulse-sentiment-console"
             target="_blank"
