@@ -33,6 +33,7 @@ export function AssistantChat({
   surface = "assistant",
   contextFilters,
   persistKey,
+  onMessagesChange,
 }: {
   className?: string;
   id?: string;
@@ -44,6 +45,9 @@ export function AssistantChat({
   // detail and back instead of resetting each time it opens. The full-screen page does not pass this
   // — it resumes server-saved threads via id/initialMessages instead.
   persistKey?: string;
+  // Notified with the current message count whenever it changes, so a host (the dock) can enable
+  // actions like "open in assistant" only once there is a conversation to act on.
+  onMessagesChange?: (count: number) => void;
 }) {
   // Resolve the persisted session once, on the client, from sessionStorage: an existing {id, messages}
   // if the user already has a conversation in this tab, otherwise a fresh id and empty history. The
@@ -106,6 +110,11 @@ export function AssistantChat({
       // Storage full or unavailable: persistence is best-effort, the live chat is unaffected.
     }
   }, [persistKey, effectiveId, messages, busy]);
+
+  // Report the message count up to the host (the dock uses it to gate "open in assistant").
+  useEffect(() => {
+    onMessagesChange?.(messages.length);
+  }, [messages, onMessagesChange]);
 
   // When the model calls setDashboardFilter and it resolves, apply the action by navigating the URL
   // filter contract. From the dashboard dock this updates the page in place; from the full-screen

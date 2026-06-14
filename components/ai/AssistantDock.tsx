@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bot, Maximize2, Minimize2, RotateCcw, SquareArrowOutUpRight, X } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
 import { AssistantChat } from "./AssistantChat";
 
@@ -24,16 +25,51 @@ const DOCK_PERSIST_KEY = "placepulse:dock-chat";
 // opens and its turns are stored under the 'dock' surface, so they never appear in the page's thread
 // list.
 export function AssistantDock({ areaName, category }: { areaName?: string; category?: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   // Bumped to force a fresh AssistantChat (new thread id, empty history) when the user restarts.
   const [resetNonce, setResetNonce] = useState(0);
+  // Live message count from the chat, so "open in assistant" only shows once there is something to move.
+  const [messageCount, setMessageCount] = useState(0);
+  const [promoting, setPromoting] = useState(false);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   function close() {
     setOpen(false);
     launcherRef.current?.focus();
+  }
+
+  // Promote this contextual dock conversation to the full assistant page: flip it to a listed thread
+  // (stamped "From dashboard"), drop the dock's local copy so it is not duplicated, and navigate to
+  // it. If the server has not recorded the turn yet (promote returns false) the dock copy is kept as
+  // a fallback, and the page still resumes the thread by id.
+  async function openInAssistant() {
+    let id: string | undefined;
+    try {
+      const raw = window.sessionStorage.getItem(DOCK_PERSIST_KEY);
+      if (raw) id = (JSON.parse(raw) as { id?: string }).id;
+    } catch {
+      // ignore: handled by the guard below
+    }
+    if (!id) return;
+    setPromoting(true);
+    try {
+      const response = await fetch(`/api/assistant/threads/${id}/promote`, { method: "POST" });
+      const promoted = response.ok && ((await response.json()) as { promoted?: boolean }).promoted;
+      if (promoted) {
+        try {
+          window.sessionStorage.removeItem(DOCK_PERSIST_KEY);
+        } catch {
+          // best-effort
+        }
+      }
+      setOpen(false);
+      router.push(`/assistant?thread=${id}`);
+    } finally {
+      setPromoting(false);
+    }
   }
 
   // Clear the persisted conversation and remount the chat fresh. Keeps the dock open so the user
@@ -84,6 +120,18 @@ export function AssistantDock({ areaName, category }: { areaName?: string; categ
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {messageCount > 0 && (
+                <button
+                  type="button"
+                  onClick={openInAssistant}
+                  disabled={promoting}
+                  aria-label="Open this conversation in the full assistant"
+                  title="Open in assistant"
+                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+                >
+                  <SquareArrowOutUpRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={restart}
@@ -115,6 +163,7 @@ export function AssistantDock({ areaName, category }: { areaName?: string; categ
             surface="dock"
             contextFilters={{ areaName, category }}
             persistKey={DOCK_PERSIST_KEY}
+            onMessagesChange={setMessageCount}
             className="flex-1"
           />
         </div>

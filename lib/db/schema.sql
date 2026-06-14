@@ -51,13 +51,12 @@ create table if not exists sentiment_suburbs (
   updated_at timestamptz not null default now()
 );
 
--- The natural grain of a row. Serves getRecord (exact match on all four columns), getTrend and
--- getThemes (prefix match on agg_type/area_name/category), so those reads are index lookups
--- rather than scans. Kept non-unique: at full national scale the loaded data is not guaranteed
--- one row per grain, and a unique build would fail. In production this is created CONCURRENTLY
--- so it does not block an in-flight import.
-create index if not exists ix_ss_grain
-  on sentiment_suburbs (agg_type, area_name, category, date);
+-- The natural grain of a row (agg_type, area_name, category, date). It is UNIQUE so each grain holds
+-- exactly one row and the import upserts instead of duplicating, and it serves getRecord (exact
+-- match), getTrend and getThemes (prefix match) as an index lookup rather than a scan. The unique
+-- index (ux_ss_grain, NULLS NOT DISTINCT so the NULL-category overall rows dedup too) is created in
+-- migration 006_dedupe_sentiment_grain.sql, not here, because building it needs a one-time dedup of
+-- the existing data and the migration runner applies this base schema before any migration.
 
 -- Single-column indexes backing the filter catalogue. listFilters reads the distinct values of
 -- each dimension with a recursive "loose index scan" (jump to the next value greater than the
