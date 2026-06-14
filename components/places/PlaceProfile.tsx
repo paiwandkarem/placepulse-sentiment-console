@@ -91,7 +91,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Stat label="Rating" value={detail.rating ? `${detail.rating.toFixed(1)} / 5` : "—"} icon />
+          <Stat label="Rating" value={detail.rating ? `${detail.rating.toFixed(1)} / 5` : "Not rated"} icon />
           <Stat label="Reviews" value={detail.reviewsCount.toLocaleString()} />
           <Stat label="Themes" value={String(themes.length)} />
         </div>
@@ -185,7 +185,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                           )}
                           <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
                             <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
-                            {review.rating ? review.rating.toFixed(1) : "—"}
+                            {review.rating ? review.rating.toFixed(1) : "-"}
                           </span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${token.soft}`}>
                             {token.label}

@@ -93,7 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="border-t border-gray-100 p-3">
           <a
-            href="https://nextjs.org/docs"
+            href="https://github.com/paiwandkarem/placepulse-sentiment-console"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
