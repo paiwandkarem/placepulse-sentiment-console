@@ -47,7 +47,12 @@ export function SearchableDropdown({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
-    function onReposition() {
+    function onReposition(event: Event) {
+      // A scroll inside the menu's own option list must not close it; only an outside scroll (which
+      // would detach the fixed-position menu from its trigger) should. Resize always closes.
+      if (event.type === "scroll" && event.target instanceof Node && panelRef.current?.contains(event.target)) {
+        return;
+      }
       setOpen(false);
     }
     document.addEventListener("pointerdown", onPointer);
