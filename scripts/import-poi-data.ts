@@ -18,7 +18,8 @@ import { from as copyFrom } from "pg-copy-streams";
 //   tsx scripts/import-poi-data.ts --no-truncate        append instead of replacing
 //   tsx scripts/import-poi-data.ts --skip-indexes       load only, build indexes later
 
-const BUCKET = process.env.POI_S3_BUCKET ?? "pipeline-test-bucket-localis";
+const BUCKET = process.env.POI_S3_BUCKET;
+if (!BUCKET) throw new Error("POI_S3_BUCKET is required");
 const ROOT = process.env.POI_S3_ROOT ?? "poi";
 
 type Dataset = { table: string; prefix: string; columns: string[] };
