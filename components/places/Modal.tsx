@@ -62,7 +62,7 @@ export function Modal({ children, closeHref }: { children: React.ReactNode; clos
           type="button"
           onClick={close}
           aria-label="Close place"
-          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-lg p-2.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>

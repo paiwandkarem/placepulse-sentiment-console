@@ -88,9 +88,11 @@ export function AssistantDock({ areaName, category }: { areaName?: string; categ
           tabIndex={-1}
           className={cn(
             "fixed z-40 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl outline-none",
+            // On phones the dock is a near-full-screen sheet (a 24rem panel would be cramped); from sm
+            // up it is the floating bottom-right panel, growing wider when maximized.
             maximized
-              ? "inset-y-6 right-6 w-[44rem] max-w-[calc(100vw-3rem)]"
-              : "bottom-24 right-6 h-[34rem] max-h-[calc(100dvh-9rem)] w-[24rem] max-w-[calc(100vw-3rem)]",
+              ? "inset-3 sm:inset-y-6 sm:left-auto sm:right-6 sm:w-[44rem] sm:max-w-[calc(100vw-3rem)]"
+              : "inset-x-3 bottom-20 top-16 sm:inset-x-auto sm:left-auto sm:top-auto sm:bottom-24 sm:right-6 sm:h-[34rem] sm:max-h-[calc(100dvh-9rem)] sm:w-[24rem] sm:max-w-[calc(100vw-3rem)]",
           )}
         >
           <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
