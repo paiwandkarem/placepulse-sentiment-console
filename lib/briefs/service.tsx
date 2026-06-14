@@ -6,6 +6,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { withModelFallback, MAX_RETRIES } from "@/lib/ai/model";
 import { aggTypeForCategory } from "@/lib/filters";
 import { getCategoryRanking, getSentimentDashboardContext } from "@/lib/services/sentimentService";
+import { placesInSuburb } from "@/lib/repositories/poiRepository";
 import {
   categoryContentSchema,
   comparisonContentSchema,
@@ -198,9 +199,11 @@ export async function runBriefJob(
       return;
     }
 
-    // Draft the prose and fetch the suburb map in parallel; the map is best effort and resolves to
-    // null on any failure, so it never blocks or fails the brief.
-    const [{ object: content }, mapDataUri] = await Promise.all([
+    // Draft the prose, fetch the suburb map, and list the suburb's most-reviewed places in parallel.
+    // Map and places are best effort and resolve to null / [] on any failure, so they never block or
+    // fail the brief. The places are rendered factually (not model-authored), so they ground the
+    // brief in real named businesses without risking an invented venue.
+    const [{ object: content }, mapDataUri, places] = await Promise.all([
       withModelFallback("brief", (m) =>
         generateObject({
           model: m,
@@ -211,6 +214,7 @@ export async function runBriefJob(
         }),
       ),
       fetchSuburbMapDataUri(ctx.record.areaName),
+      placesInSuburb(ctx.record.areaName, { sort: "reviews", limit: 6 }).catch(() => []),
     ]);
 
     const buffer = await renderToBuffer(
@@ -221,6 +225,12 @@ export async function runBriefJob(
         themeRows={buildThemeRows(ctx)}
         quotes={buildQuotes(ctx)}
         keywords={buildKeywords(ctx)}
+        places={places.map((place) => ({
+          name: place.name,
+          category: place.category,
+          rating: place.rating,
+          reviewsCount: place.reviewsCount,
+        }))}
         mapDataUri={mapDataUri}
       />,
     );
