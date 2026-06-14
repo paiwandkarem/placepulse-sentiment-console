@@ -75,7 +75,7 @@ export default async function Home({ searchParams }: PageProps) {
   return (
     <MapDrawerProvider>
       {catalogue && selected && (
-        <div className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
+        <div className="sticky top-14 z-30 border-b border-gray-200 bg-white shadow-sm md:top-0">
           <div className="px-4 py-3 md:px-8">
             <Suspense fallback={<Skeleton className="h-12 w-full" />}>
               <FilterBar catalogue={catalogue} selected={selected} />

@@ -29,7 +29,7 @@ export default async function AssistantPage({
   const active = userId && threadId ? await getThread(threadId, userId) : null;
 
   return (
-    <div className="flex h-dvh">
+    <div className="flex h-[calc(100dvh-3.5rem)] md:h-dvh">
       <ThreadSidebar threads={threads} activeId={active?.id} />
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="border-b border-gray-200 bg-white px-4 py-4 md:px-8">
