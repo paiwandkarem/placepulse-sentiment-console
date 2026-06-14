@@ -72,9 +72,29 @@ export async function listThreads(userId: string, limit = 50): Promise<ChatThrea
   return rows.map((row) => ({
     id: String(row.id),
     title: (row.title as string | null) ?? null,
-    updatedAt: String(row.updated_at),
+    updatedAt: toIsoString(row.updated_at),
     origin: (row.origin as string | null) ?? null,
   }));
+}
+
+// Normalise a timestamp from the driver (a Date or a string, depending) to a clean ISO string the
+// client can parse for relative-time display, falling back to "now" if it is unparseable.
+function toIsoString(value: unknown): string {
+  const date = new Date(value as string);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+// Set a conversation's title (the AI-generated one that replaces the provisional first-question
+// title). Upserts so it is race-safe against the turn's own after() save: if the row does not exist
+// yet this creates it (messages default to []), and if it does this forces the new title. Scoped to
+// the caller via the conflict WHERE, so a title can only ever be set on the user's own thread.
+export async function setThreadTitle(id: string, userId: string, title: string): Promise<void> {
+  await sql`
+    insert into chat_sessions (id, user_id, surface, title)
+    values (${id}, ${userId}, 'assistant', ${title})
+    on conflict (id) do update set title = excluded.title, updated_at = now()
+    where chat_sessions.user_id = ${userId}
+  `;
 }
 
 export type ChatThread = {
