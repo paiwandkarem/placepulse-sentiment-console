@@ -16,6 +16,7 @@ import {
   hasMapToken,
   popupCard,
 } from "@/lib/map/config";
+import { useMapDrawer } from "./MapDrawerContext";
 
 // Slide-over map used to select which suburb the dashboard shows. The whole national suburb set is
 // one static, near-full-detail GeoJSON loaded once into a single source (built by
@@ -32,6 +33,7 @@ const BOUNDARY_URL = process.env.NEXT_PUBLIC_SUBURB_GEOJSON_URL || "/qld-suburbs
 export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const { setOpen } = useMapDrawer();
   const containerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
@@ -188,7 +190,7 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
           type="button"
           className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-800"
           aria-label="Close map"
-          onClick={() => setParam((next) => next.delete("map"))}
+          onClick={() => setOpen(false)}
         >
           <X className="h-[18px] w-[18px]" aria-hidden="true" />
         </button>
