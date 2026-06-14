@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { generateObject } from "ai";
 import { put } from "@vercel/blob";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { model } from "@/lib/ai/model";
+import { withModelFallback, MAX_RETRIES } from "@/lib/ai/model";
 import { aggTypeForCategory } from "@/lib/filters";
 import { getCategoryRanking, getSentimentDashboardContext } from "@/lib/services/sentimentService";
 import {
@@ -201,12 +201,15 @@ export async function runBriefJob(
     // Draft the prose and fetch the suburb map in parallel; the map is best effort and resolves to
     // null on any failure, so it never blocks or fails the brief.
     const [{ object: content }, mapDataUri] = await Promise.all([
-      generateObject({
-        model: model("brief"),
-        schema: overviewContentSchema,
-        system: BRIEF_SYSTEM_PROMPT,
-        prompt: `Write the brief from this data.\n\n${buildDigest(ctx)}`,
-      }),
+      withModelFallback("brief", (m) =>
+        generateObject({
+          model: m,
+          maxRetries: MAX_RETRIES,
+          schema: overviewContentSchema,
+          system: BRIEF_SYSTEM_PROMPT,
+          prompt: `Write the brief from this data.\n\n${buildDigest(ctx)}`,
+        }),
+      ),
       fetchSuburbMapDataUri(ctx.record.areaName),
     ]);
 
@@ -309,12 +312,15 @@ export async function runComparisonBriefJob(
     };
     const categoryLabel = input.category ?? "all categories (overall)";
 
-    const { object: content } = await generateObject({
-      model: model("brief"),
-      schema: comparisonContentSchema,
-      system: COMPARISON_SYSTEM_PROMPT,
-      prompt: `Write the comparison from this data.\n\n${buildComparisonDigest(suburbs, categoryLabel)}`,
-    });
+    const { object: content } = await withModelFallback("brief", (m) =>
+      generateObject({
+        model: m,
+        maxRetries: MAX_RETRIES,
+        schema: comparisonContentSchema,
+        system: COMPARISON_SYSTEM_PROMPT,
+        prompt: `Write the comparison from this data.\n\n${buildComparisonDigest(suburbs, categoryLabel)}`,
+      }),
+    );
 
     const buffer = await renderToBuffer(<ComparisonDocument content={content} meta={meta} />);
     const blob = await put(`briefs/${jobId}.pdf`, buffer, { access: "public", contentType: "application/pdf" });
@@ -377,12 +383,15 @@ export async function runCategoryBriefJob(jobId: string, input: { category: stri
       return;
     }
     const meta = buildCategoryMeta(input.category, date, suburbs);
-    const { object: content } = await generateObject({
-      model: model("brief"),
-      schema: categoryContentSchema,
-      system: CATEGORY_SYSTEM_PROMPT,
-      prompt: `Write the category deep-dive from this data.\n\n${buildCategoryDigest(meta)}`,
-    });
+    const { object: content } = await withModelFallback("brief", (m) =>
+      generateObject({
+        model: m,
+        maxRetries: MAX_RETRIES,
+        schema: categoryContentSchema,
+        system: CATEGORY_SYSTEM_PROMPT,
+        prompt: `Write the category deep-dive from this data.\n\n${buildCategoryDigest(meta)}`,
+      }),
+    );
 
     const buffer = await renderToBuffer(<CategoryDocument content={content} meta={meta} />);
     const blob = await put(`briefs/${jobId}.pdf`, buffer, { access: "public", contentType: "application/pdf" });
@@ -473,12 +482,15 @@ export async function runMomentumBriefJob(jobId: string, input: { areaName: stri
       return;
     }
     const meta = buildMomentumMeta(ctx);
-    const { object: content } = await generateObject({
-      model: model("brief"),
-      schema: momentumContentSchema,
-      system: MOMENTUM_SYSTEM_PROMPT,
-      prompt: `Write the momentum brief from this data.\n\n${buildMomentumDigest(meta)}`,
-    });
+    const { object: content } = await withModelFallback("brief", (m) =>
+      generateObject({
+        model: m,
+        maxRetries: MAX_RETRIES,
+        schema: momentumContentSchema,
+        system: MOMENTUM_SYSTEM_PROMPT,
+        prompt: `Write the momentum brief from this data.\n\n${buildMomentumDigest(meta)}`,
+      }),
+    );
 
     const buffer = await renderToBuffer(<MomentumDocument content={content} meta={meta} />);
     const blob = await put(`briefs/${jobId}.pdf`, buffer, { access: "public", contentType: "application/pdf" });
