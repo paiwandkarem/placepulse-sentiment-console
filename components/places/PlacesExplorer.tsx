@@ -33,6 +33,9 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
   const params = useSearchParams();
   // A place is open when the intercepted route is active (the URL is /places/<id>, not /places).
   const placeOpen = pathname !== "/places";
+  // The open place id (decoded from the intercepted path), so the map can ring it like the dashboard
+  // and briefs maps highlight a selected suburb.
+  const openPlaceId = placeOpen ? decodeURIComponent(pathname.slice("/places/".length)) : "";
   const query = params.get("q") ?? "";
   const suburb = params.get("suburb") ?? "";
   const category = params.get("category") ?? "";
@@ -131,7 +134,14 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
 
   return (
     <div className="relative h-[calc(100dvh-3.5rem)] w-full md:h-[100dvh]">
-      <PlacesMap points={points} fitKey={fitKey} onSelectSuburb={selectSuburb} onSelectPlace={selectPlace} />
+      <PlacesMap
+        points={points}
+        fitKey={fitKey}
+        onSelectSuburb={selectSuburb}
+        onSelectPlace={selectPlace}
+        selectedSuburb={suburb || null}
+        selectedPlaceId={openPlaceId || null}
+      />
 
       {suburb && <SuburbPanel suburb={suburb} onClear={clearSuburb} />}
 

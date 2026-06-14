@@ -27,12 +27,16 @@ export async function saveChatSession(input: {
   id: string;
   userId: string;
   surface: ChatSurface;
+  // Where the conversation started: 'dock' for the dashboard copilot, null for the assistant page.
+  // Set on the first turn and kept thereafter, so the thread list can mark dock chats "From dashboard".
+  origin?: string | null;
   messages: UIMessage[];
   filters?: unknown;
 }): Promise<void> {
   const title = deriveTitle(input.messages);
   const messagesJson = JSON.stringify(input.messages);
   const filtersJson = input.filters ? JSON.stringify(input.filters) : null;
+  const origin = input.origin ?? null;
 
   // Upsert: the first turn creates the row and fixes the title; later turns of the same session
   // overwrite the message list and touch updated_at. The title is kept from the first turn, and
@@ -41,21 +45,22 @@ export async function saveChatSession(input: {
   // whoever started it and never moves surface; later turns of the same id only refresh the
   // messages, title and filters.
   await sql`
-    insert into chat_sessions (id, user_id, surface, title, filters, messages, updated_at)
-    values (${input.id}, ${input.userId}, ${input.surface}, ${title}, ${filtersJson}::jsonb, ${messagesJson}::jsonb, now())
+    insert into chat_sessions (id, user_id, surface, title, filters, messages, origin, updated_at)
+    values (${input.id}, ${input.userId}, ${input.surface}, ${title}, ${filtersJson}::jsonb, ${messagesJson}::jsonb, ${origin}, now())
     on conflict (id) do update set
       messages = excluded.messages,
       title = coalesce(chat_sessions.title, excluded.title),
       filters = coalesce(excluded.filters, chat_sessions.filters),
+      origin = coalesce(chat_sessions.origin, excluded.origin),
       updated_at = now()
   `;
 }
 
 export type ChatThreadSummary = { id: string; title: string | null; updatedAt: string; origin: string | null };
 
-// The assistant page's thread list: a user's resumable conversations, most recent first. Scoped to
-// the 'assistant' surface so the ephemeral dock chats never appear here, unless one was explicitly
-// promoted from the dock (which flips its surface and stamps origin = 'dock').
+// The assistant page's thread list: a user's resumable conversations, most recent first. All chats
+// are saved under the 'assistant' surface, including dashboard-dock conversations (auto-promoted),
+// which carry origin = 'dock' so the list can mark them "From dashboard".
 export async function listThreads(userId: string, limit = 50): Promise<ChatThreadSummary[]> {
   const rows = (await sql`
     select id, title, updated_at, origin
@@ -70,20 +75,6 @@ export async function listThreads(userId: string, limit = 50): Promise<ChatThrea
     updatedAt: String(row.updated_at),
     origin: (row.origin as string | null) ?? null,
   }));
-}
-
-// Promote a dashboard-dock conversation to the full assistant page: flip its surface so it appears
-// in the thread list and stamp its origin so the list can mark it "From dashboard". Scoped to the
-// caller and to surface = 'dock', so it only ever moves the user's own contextual chats and is a
-// no-op (returns false) if the thread was not a saved dock chat. Idempotent.
-export async function promoteDockThread(id: string, userId: string): Promise<boolean> {
-  const rows = (await sql`
-    update chat_sessions
-    set surface = 'assistant', origin = 'dock', updated_at = now()
-    where id = ${id} and user_id = ${userId} and surface = 'dock'
-    returning id
-  `) as Record<string, unknown>[];
-  return rows.length > 0;
 }
 
 export type ChatThread = {

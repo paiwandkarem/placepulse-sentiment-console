@@ -5,6 +5,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
 import { MapLegend } from "@/components/ui/MapLegend";
 import { MAP_COLORS, MAP_STYLE, escapeHtml, hasMapToken, popupCard } from "@/lib/map/config";
+import type { ExpressionSpecification } from "mapbox-gl";
 import type { PlacePoint } from "@/lib/repositories/poiRepository";
 
 // The clustered point map behind the Places explorer. mapbox-gl is imported inside the effect (it
@@ -70,16 +71,44 @@ function toFeatureCollection(points: PlacePoint[]) {
   };
 }
 
+// The suburb border switches to the shared near-black "selected" colour when a suburb is open, the
+// same emphasis the dashboard and briefs maps use; unselected keeps the emerald line that fades with
+// zoom. Selected stays full-strength so it reads clearly even zoomed in where the context lines fade.
+const PLACES_SUBURB_LINE_COLOR: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  MAP_COLORS.selectedLine,
+  MAP_COLORS.line,
+];
+const PLACES_SUBURB_LINE_OPACITY: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  1,
+  ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.12],
+];
+const PLACES_SUBURB_LINE_WIDTH: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  2.5,
+  ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.8],
+];
+
 export function PlacesMap({
   points,
   fitKey,
   onSelectSuburb,
   onSelectPlace,
+  selectedSuburb,
+  selectedPlaceId,
 }: {
   points: PlacePoint[];
   fitKey: string;
   onSelectSuburb?: (suburb: string) => void;
   onSelectPlace?: (placeId: string) => void;
+  // The open suburb and place, so the map mirrors what the slide-over panels are showing with the
+  // shared near-black selected highlight.
+  selectedSuburb?: string | null;
+  selectedPlaceId?: string | null;
 }) {
   // Kept in refs so the map (created once) always calls the latest handlers without re-creating.
   const onSelectSuburbRef = useRef(onSelectSuburb);
@@ -151,9 +180,9 @@ export function PlacesMap({
               type: "line",
               source: "suburbs",
               paint: {
-                "line-color": MAP_COLORS.line,
-                "line-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.12],
-                "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 11, 0.8],
+                "line-color": PLACES_SUBURB_LINE_COLOR,
+                "line-opacity": PLACES_SUBURB_LINE_OPACITY,
+                "line-width": PLACES_SUBURB_LINE_WIDTH,
               },
             });
 
@@ -209,6 +238,22 @@ export function PlacesMap({
             source: "places",
             filter: ["!", ["has", "point_count"]],
             paint: { "circle-color": MAP_COLORS.point, "circle-radius": 6, "circle-stroke-width": 1.5, "circle-stroke-color": "#ffffff" },
+          });
+
+          // The open place gets a near-black ring on top, the point equivalent of the selected-suburb
+          // border. A dedicated single-feature source avoids fighting the clustered places source for
+          // per-point feature-state.
+          map.addSource("selected-place", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+          map.addLayer({
+            id: "selected-place-ring",
+            type: "circle",
+            source: "selected-place",
+            paint: {
+              "circle-radius": 9,
+              "circle-color": MAP_COLORS.point,
+              "circle-stroke-width": 3,
+              "circle-stroke-color": MAP_COLORS.selectedLine,
+            },
           });
 
           const hoverPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
@@ -292,6 +337,36 @@ export function PlacesMap({
     // new filter). Listing fitKey here would fire before the new points load and frame the old set.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, ready]);
+
+  // Move the near-black "selected" border onto the open suburb (and off the previous one).
+  const selectedSuburbStateRef = useRef<string | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !map.getSource?.("suburbs")) return;
+    const prev = selectedSuburbStateRef.current;
+    if (prev && prev !== selectedSuburb) {
+      map.setFeatureState({ source: "suburbs", id: prev }, { selected: false });
+    }
+    if (selectedSuburb) {
+      map.setFeatureState({ source: "suburbs", id: selectedSuburb }, { selected: true });
+    }
+    selectedSuburbStateRef.current = selectedSuburb ?? null;
+  }, [selectedSuburb, ready]);
+
+  // Ring the open place. If it is not in the current point set (e.g. filtered out) the ring clears.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const source = map.getSource("selected-place");
+    if (!source) return;
+    const place = selectedPlaceId ? points.find((candidate) => candidate.placeId === selectedPlaceId) : undefined;
+    source.setData({
+      type: "FeatureCollection",
+      features: place
+        ? [{ type: "Feature", geometry: { type: "Point", coordinates: [place.lon, place.lat] }, properties: {} }]
+        : [],
+    });
+  }, [selectedPlaceId, points, ready]);
 
   return (
     <div className="relative h-full w-full">
