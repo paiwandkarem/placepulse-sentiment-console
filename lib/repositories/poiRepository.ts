@@ -36,6 +36,14 @@ function cleanUrl(value: unknown): string | null {
   return /^https?:\/\//i.test(text) ? text : null;
 }
 
+// A short, single-line review excerpt for the map hover card. Collapses whitespace and caps the
+// length so the card stays compact, returning null when there is no usable text.
+function snippet(value: unknown, max = 150): string | null {
+  const text = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  if (text.length < 12) return null;
+  return text.length > max ? `${text.slice(0, max).trimEnd()}...` : text;
+}
+
 // photos_and_videos is a JSON array of image URLs. Parse defensively (it can be empty or malformed),
 // drop anything that is not an http(s) URL or duplicates the main image, and cap the count so the
 // payload and the rendered strip stay bounded.
@@ -386,6 +394,9 @@ export type PlacePoint = {
   lon: number;
   rating: number;
   reviewsCount: number;
+  // Carried so the map hover card can show a photo and a real review without a second request.
+  image: string | null;
+  review: string | null;
 };
 
 // Map points for the directory's filters: places with coordinates, capped, most reviewed first. The
@@ -415,9 +426,17 @@ export async function placePoints(
   params.push(clamp(limit, 1, 1000));
 
   const rows = (await sql.query(
-    `select p.place_id, p.name, p.category, p.lat, p.lon, p.rating, p.reviews_count
+    `select p.place_id, p.name, p.category, p.lat, p.lon, p.rating, p.reviews_count, p.main_image,
+            rv.review_text
        from poi_places p
        join poi_place_suburb s on s.place_id = p.place_id
+       left join lateral (
+         select r.review_text
+           from poi_reviews r
+          where r.place_id = p.place_id and length(trim(r.review_text)) >= 20
+          order by r.created_at desc nulls last
+          limit 1
+       ) rv on true
       where ${where.join(" and ")}
       order by p.reviews_count desc nulls last
       limit $${params.length}`,
@@ -432,6 +451,8 @@ export async function placePoints(
     lon: toNumber(row.lon),
     rating: toNumber(row.rating),
     reviewsCount: toNumber(row.reviews_count),
+    image: cleanUrl(row.main_image),
+    review: snippet(row.review_text),
   }));
 }
 
