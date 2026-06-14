@@ -6,7 +6,8 @@ import { track } from "@vercel/analytics";
 import { cn } from "@/lib/ui/sentiment";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import type { BriefJob } from "@/lib/briefs/repository";
-import type { BriefContent } from "@/lib/briefs/schema";
+import { BRIEF_TYPE_META, BRIEF_TYPES } from "@/lib/briefs/schema";
+import type { BriefContent, BriefType } from "@/lib/briefs/schema";
 
 const ALL_CATEGORIES = "All categories";
 
@@ -34,12 +35,22 @@ export function BriefsView({
   initialBriefs: BriefJob[];
 }) {
   const [briefs, setBriefs] = useState<BriefJob[]>(initialBriefs);
-  const [area, setArea] = useState("");
+  const [type, setType] = useState<BriefType>("overview");
+  const [areas, setAreas] = useState<string[]>([""]);
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const areaSet = useMemo(() => new Set(areaNames), [areaNames]);
+
+  const setAreaAt = useCallback((index: number, value: string) => {
+    setAreas((prev) => prev.map((entry, i) => (i === index ? value : entry)));
+  }, []);
+  // Comparison needs two or three suburbs; overview needs one. Switching type resizes the picker.
+  const selectType = useCallback((value: BriefType) => {
+    setType(value);
+    setAreas((prev) => (value === "comparison" ? (prev.length < 2 ? [...prev, ""] : prev) : prev.slice(0, 1)));
+  }, []);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/briefs");
@@ -64,25 +75,32 @@ export function BriefsView({
 
   async function generate(event: React.FormEvent) {
     event.preventDefault();
-    const trimmed = area.trim();
-    if (!areaSet.has(trimmed)) {
+    const picked = [...new Set(areas.map((entry) => entry.trim()).filter(Boolean))];
+    const allValid = picked.every((entry) => areaSet.has(entry));
+    if (type === "comparison") {
+      if (picked.length < 2 || !allValid) {
+        setError("Pick at least two Queensland suburbs to compare.");
+        return;
+      }
+    } else if (picked.length < 1 || !allValid) {
       setError("Pick a Queensland suburb from the list.");
       return;
     }
+    const areaNamesToSend = type === "comparison" ? picked.slice(0, 3) : [picked[0]];
     setSubmitting(true);
     setError(null);
     try {
       const response = await fetch("/api/briefs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ areaName: trimmed, category: category === ALL_CATEGORIES ? undefined : category }),
+        body: JSON.stringify({ type, areaNames: areaNamesToSend, category: category === ALL_CATEGORIES ? undefined : category }),
       });
       if (!response.ok) {
         setError("Could not start the brief. Try again.");
         return;
       }
-      track("brief_generated", { suburb: trimmed, category });
-      setArea("");
+      track("brief_generated", { type, suburbs: areaNamesToSend.join(", "), category });
+      setAreas(type === "comparison" ? ["", ""] : [""]);
       setCategory(ALL_CATEGORIES);
       await refresh();
     } finally {
@@ -92,20 +110,84 @@ export function BriefsView({
 
   return (
     <div className="space-y-8">
-      <form
-        onSubmit={generate}
-        className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end"
-      >
-        <div className="flex-1">
-          <span className="mb-1 block text-xs font-semibold text-gray-600">Suburb</span>
-          <SearchableDropdown
-            value={area}
-            options={areaNames}
-            onSelect={setArea}
-            placeholder="Search a Queensland suburb"
-            triggerClassName="h-10 w-full"
-          />
+      <form onSubmit={generate} className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div>
+          <span className="mb-1.5 block text-xs font-semibold text-gray-600">Brief type</span>
+          <div className="flex flex-wrap gap-2">
+            {BRIEF_TYPES.map((value) => {
+              const meta = BRIEF_TYPE_META[value];
+              const active = type === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={!meta.available}
+                  onClick={() => selectType(value)}
+                  title={meta.available ? meta.description : "Coming soon"}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    active
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : meta.available
+                        ? "border-gray-200 text-gray-700 hover:bg-gray-50"
+                        : "cursor-not-allowed border-gray-100 text-gray-300",
+                  )}
+                >
+                  {meta.label}
+                  {!meta.available && <span className="ml-1 text-[10px] uppercase tracking-wide">Soon</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          {type === "comparison" ? (
+            <div className="flex-1 space-y-2">
+              <span className="block text-xs font-semibold text-gray-600">Suburbs to compare (2 to 3)</span>
+              {areas.map((value, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <SearchableDropdown
+                    value={value}
+                    options={areaNames}
+                    onSelect={(next) => setAreaAt(index, next)}
+                    placeholder={`Suburb ${index + 1}`}
+                    triggerClassName="h-10 w-full"
+                  />
+                  {areas.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setAreas((prev) => prev.filter((_, i) => i !== index))}
+                      aria-label="Remove suburb"
+                      className="shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-rose-600"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {areas.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() => setAreas((prev) => [...prev, ""])}
+                  className="text-xs font-semibold text-emerald-700 hover:underline"
+                >
+                  + Add suburb
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1">
+              <span className="mb-1 block text-xs font-semibold text-gray-600">Suburb</span>
+              <SearchableDropdown
+                value={areas[0] ?? ""}
+                options={areaNames}
+                onSelect={(next) => setAreaAt(0, next)}
+                placeholder="Search a Queensland suburb"
+                triggerClassName="h-10 w-full"
+              />
+            </div>
+          )}
 
         <div className="sm:w-56">
           <span className="mb-1 block text-xs font-semibold text-gray-600">Category</span>
@@ -130,6 +212,7 @@ export function BriefsView({
           )}
           Generate brief
         </button>
+        </div>
       </form>
       {error && <p className="-mt-6 text-sm text-rose-600">{error}</p>}
 
@@ -153,7 +236,12 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
     <li className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">{brief.title}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900">{brief.title}</h3>
+            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              {BRIEF_TYPE_META[brief.type].label}
+            </span>
+          </div>
           <p className="mt-0.5 text-xs text-gray-500">{new Date(brief.createdAt).toLocaleString()}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
