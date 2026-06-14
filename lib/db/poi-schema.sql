@@ -1,6 +1,6 @@
 -- QLD POI dataset: raw landing tables (a "bronze" layer).
 --
--- These mirror the seven gzipped-CSV exports under s3://pipeline-test-bucket-localis/poi/
+-- These mirror the seven gzipped-CSV exports under s3://<your-poi-bucket>/poi/
 -- column for column, in source order, so the bulk loader can COPY each part straight in
 -- without reshaping. The data is Queensland only; the national sentiment_suburbs aggregate
 -- stays the spine of the dashboard and these tables enrich the place level beneath it.

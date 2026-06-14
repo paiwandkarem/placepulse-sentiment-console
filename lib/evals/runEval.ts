@@ -1,7 +1,7 @@
 import "server-only";
 import { generateObject, generateText, stepCountIs } from "ai";
 import { z } from "zod";
-import { model } from "@/lib/ai/model";
+import { model, withModelFallback, MAX_RETRIES } from "@/lib/ai/model";
 import { assistantTools } from "@/lib/assistant/tools";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
 import { EVAL_CASES, type EvalCase } from "./cases";
@@ -39,23 +39,26 @@ async function judgeFaithfulness(
   answer: string,
 ): Promise<CheckResult> {
   try {
-    const { object } = await generateObject({
-      model: model("judge"),
-      schema: z.object({
-        faithful: z.boolean().describe("true only if every factual claim is supported by the tool results"),
-        reason: z.string().describe("one sentence citing the unsupported claim, or confirming support"),
+    const { object } = await withModelFallback("judge", (m) =>
+      generateObject({
+        model: m,
+        maxRetries: MAX_RETRIES,
+        schema: z.object({
+          faithful: z.boolean().describe("true only if every factual claim is supported by the tool results"),
+          reason: z.string().describe("one sentence citing the unsupported claim, or confirming support"),
+        }),
+        system:
+          "You are a strict faithfulness evaluator for a grounded analytics assistant. The tool results " +
+          "are the ONLY permitted source of facts. Mark faithful=false if the answer states any figure, " +
+          "ranking, quote or claim that is not present in, or directly derivable from, those results. " +
+          "Reasonable rounding and rephrasing are fine; invented specifics are not.",
+        prompt:
+          `Question:\n${question}\n\n` +
+          `Tool results (the only permitted source of facts):\n${JSON.stringify(toolResults)}\n\n` +
+          `Answer to grade:\n${answer}\n\n` +
+          `Rubric: ${rubric}`,
       }),
-      system:
-        "You are a strict faithfulness evaluator for a grounded analytics assistant. The tool results " +
-        "are the ONLY permitted source of facts. Mark faithful=false if the answer states any figure, " +
-        "ranking, quote or claim that is not present in, or directly derivable from, those results. " +
-        "Reasonable rounding and rephrasing are fine; invented specifics are not.",
-      prompt:
-        `Question:\n${question}\n\n` +
-        `Tool results (the only permitted source of facts):\n${JSON.stringify(toolResults)}\n\n` +
-        `Answer to grade:\n${answer}\n\n` +
-        `Rubric: ${rubric}`,
-    });
+    );
     return {
       name: "faithful (judge)",
       pass: object.faithful,
@@ -73,6 +76,7 @@ async function judgeFaithfulness(
 export async function runEvalCase(testCase: EvalCase): Promise<CaseResult> {
   const result = await generateText({
     model: model("assistant"),
+    maxRetries: MAX_RETRIES,
     system: ASSISTANT_SYSTEM_PROMPT,
     tools: assistantTools,
     stopWhen: stepCountIs(6),

@@ -17,7 +17,9 @@ export function MapEdgeTab() {
       onClick={toggle}
       aria-label={mapOpen ? "Close map panel" : "Open map panel"}
       title={mapOpen ? "Close map panel" : "Open map panel"}
-      className={`fixed top-1/2 z-[60] flex min-h-[68px] w-[38px] -translate-y-1/2 flex-col items-center justify-center gap-1 rounded-l-[18px] border border-r-0 border-gray-800 bg-gray-900 px-1 py-1.5 text-white shadow-[0_14px_32px_rgba(15,23,42,0.16)] backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gray-300/60 ${
+      // Hidden on phones: there the floating right-edge handle reads as a stray button, and the map is
+      // opened from the (now stacked) filter bar instead. Shown from sm up as a desktop affordance.
+      className={`fixed top-1/2 z-[60] hidden min-h-[68px] w-[38px] -translate-y-1/2 flex-col items-center justify-center gap-1 rounded-l-[18px] border border-r-0 border-gray-800 bg-gray-900 px-1 py-1.5 text-white shadow-[0_14px_32px_rgba(15,23,42,0.16)] backdrop-blur-md transition-all duration-300 ease-in-out hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-gray-300/60 sm:flex ${
         mapOpen ? "right-0 sm:right-[420px]" : "right-0"
       }`}
     >

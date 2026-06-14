@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createBriefJob, listBriefJobs } from "@/lib/briefs/repository";
 import { runBriefJob, runCategoryBriefJob, runComparisonBriefJob, runMomentumBriefJob } from "@/lib/briefs/service";
 import { BRIEF_TYPES } from "@/lib/briefs/schema";
+import { rateLimit } from "@/lib/ratelimit";
 
 // Brief generation is slow (a schema-constrained model draft plus a PDF render), so it runs after
 // the response via after(): the POST records the job and returns its id immediately, and the work
@@ -25,6 +26,14 @@ export async function POST(request: Request): Promise<Response> {
   const { userId } = await auth();
   if (!userId) {
     return new Response("Sign in to generate a brief.", { status: 401 });
+  }
+
+  const result = rateLimit("briefs:" + userId, { limit: 10, windowMs: 3600000 });
+  if (!result.success) {
+    return new Response("Brief limit reached. Try again later.", {
+      status: 429,
+      headers: { "Retry-After": String(result.retryAfterSeconds) },
+    });
   }
 
   const json = await request.json().catch(() => null);

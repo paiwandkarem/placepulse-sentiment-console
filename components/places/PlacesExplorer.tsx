@@ -130,7 +130,7 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
   const fitKey = `${query}|${suburb}|${category}`;
 
   return (
-    <div className="relative h-[100dvh] w-full">
+    <div className="relative h-[calc(100dvh-3.5rem)] w-full md:h-[100dvh]">
       <PlacesMap points={points} fitKey={fitKey} onSelectSuburb={selectSuburb} onSelectPlace={selectPlace} />
 
       {suburb && <SuburbPanel suburb={suburb} onClear={clearSuburb} />}

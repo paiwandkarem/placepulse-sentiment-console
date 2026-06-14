@@ -72,8 +72,10 @@ function parseRows(filePath: string): RawRow[] {
 }
 
 // Upsert keyed on the natural grain (agg_type, area_name, category, date) so re-running the
-// import is idempotent — a second load updates in place instead of duplicating. query_key is
-// NOT unique on its own: a suburb/period carries one row per category under the same key.
+// import is idempotent — a second load updates in place instead of duplicating. The ON CONFLICT
+// target is the ux_ss_grain unique index (NULLS NOT DISTINCT) from migration
+// 006_dedupe_sentiment_grain.sql; without it the conflict never matched and re-imports duplicated.
+// query_key is NOT unique on its own: a suburb/period carries one row per category under the same key.
 async function importRow(row: RawRow): Promise<void> {
   const identity = requiredColumns.parse(row);
 

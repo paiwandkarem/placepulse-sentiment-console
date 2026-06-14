@@ -72,12 +72,17 @@ export function ThreadList({
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "min-w-0 flex-1 truncate py-2 text-sm",
+                    "min-w-0 flex-1 py-2 text-sm",
                     active ? "font-medium text-gray-900" : "text-gray-700",
                   )}
                   title={thread.title ?? "Untitled chat"}
                 >
-                  {thread.title ?? "Untitled chat"}
+                  <span className="block truncate">{thread.title ?? "Untitled chat"}</span>
+                  {thread.origin === "dock" && (
+                    <span className="mt-0.5 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                      From dashboard
+                    </span>
+                  )}
                 </Link>
                 <button
                   type="button"

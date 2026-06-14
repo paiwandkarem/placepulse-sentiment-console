@@ -119,6 +119,10 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
         <SortButton label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
       </div>
 
+      {/* On narrow phones the fixed columns are wider than the viewport, so scroll them within the
+          card instead of letting them push the whole page sideways. */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[360px]">
       <ul className="divide-y divide-gray-100">
         {sorted.map((c) => {
           const left = position(c.overallSatisfaction100);
@@ -180,6 +184,8 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
         <span />
         <span />
         <span />
+      </div>
+        </div>
       </div>
     </div>
   );
