@@ -26,7 +26,7 @@ Built commit by commit. Every core surface is now built:
 | Surface | Status | Notes |
 | --- | --- | --- |
 | Dashboard (`/`) | Built | KPIs, three-year trend, category breakdown, theme drivers, word cloud, distributions, suburb boundary map. |
-| Assistant (docked copilot) | Built | Streaming grounded chat that can drive the dashboard filters by chat; generative tool cards over an audit timeline. |
+| Assistant (docked copilot) | Built | Streaming grounded chat that can drive the dashboard filters by chat; generative tool cards over an audit timeline; conversations auto-saved as "From dashboard" threads. |
 | Assistant (full-screen page, `/assistant`) | Built | Same engine with per-user, resumable conversation threads. |
 | Briefs (`/briefs`) | Built | Durable AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum); suburbs chosen on a map. |
 | Evals | Built | Grounding suite across every tool tier plus refusal and dashboard-action cases, with an independent LLM faithfulness judge; stored in `eval_runs`, runnable via `npm run evals` (or `ci:full`). |
@@ -212,11 +212,11 @@ The assistant answers only from tool output. It does not answer from memory and 
 * **Rendering**: assistant markdown (including tables) renders with **Streamdown**, and a tool-call timeline shows each tool, its input and its output so every answer is auditable.
 * **Generative UI**: tool results also render as rich cards (suburb KPIs, an SVG trend sparkline, place cards with locator maps, a head-to-head compare) above the audit timeline.
 * **Driving the product**: a `setDashboardFilter` tool returns a typed action the dashboard applies to its URL filters, so a chat turn changes what the dashboard shows.
-* **Threads**: the full-screen page lists and resumes past conversations (`useChat` id plus stored messages), scoped per user. The dashboard dock stays contextual and out of that saved thread list, but persists its conversation within the browser session, so navigating to a place detail and back does not lose context, and it can be restarted from its header.
+* **Threads**: the full-screen page lists and resumes past conversations (`useChat` id plus stored messages), scoped per user. A dashboard-dock conversation persists in the browser session (so navigating to a place detail and back does not lose it) and is auto-saved as a listed thread tagged "From dashboard" (`origin = 'dock'`), so it appears in the `/assistant` list and can be reopened there from the dock's header. The dock can also be restarted from its header.
 
 ### Briefs
 
-`/briefs` generates executive PDF briefs in four report types over one pipeline: a schema-constrained `generateObject` call on Opus 4.8 (with fallback to Sonnet) drafts the prose, `@react-pdf/renderer` renders the document, the PDF is stored in Vercel Blob, and the job is recorded in `brief_jobs`. Generation runs off the response path via `after()`, the endpoint is rate-limited per user, and the page polls the job to completion. The four types (overview, suburb comparison, category deep-dive, momentum) are a discriminated union over the shared runner, each with its own content schema and template. Suburbs are chosen on a map, with a satisfaction choropleth for the category deep-dive.
+`/briefs` generates executive PDF briefs in four report types over one pipeline: a schema-constrained `generateObject` call on Opus 4.8 (with fallback to Sonnet) drafts the prose, `@react-pdf/renderer` renders the document, the PDF is stored in Vercel Blob, and the job is recorded in `brief_jobs`. Generation runs off the response path via `after()`, the endpoint is rate-limited per user, and the page polls the job to completion. The four types (overview, suburb comparison, category deep-dive, momentum) are a discriminated union over the shared runner, each with its own content schema and template. Suburbs are chosen on a map, with a satisfaction choropleth for the category deep-dive. The overview brief also lists the suburb's most-reviewed businesses, read straight from the POI data (`placesInSuburb`) and rendered factually, so the brief names real venues without the model inventing one.
 
 ### Evals
 
