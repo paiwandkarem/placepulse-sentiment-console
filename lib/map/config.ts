@@ -83,6 +83,51 @@ export const CHOROPLETH_FILL_COLOR: ExpressionSpecification = [
 
 export const CHOROPLETH_FILL_OPACITY = 0.72;
 
+// Places explorer context layers. There the suburb polygons are navigation context, not the focus,
+// so they fade as you zoom in and the place points take over; the selected suburb keeps the same
+// near-black border the briefs map uses, at full strength. Shared here so the maps read as one
+// product rather than each defining its own expressions.
+// Fill: a selected suburb is clearly highlighted (emerald-700 + the near-black border) but kept
+// translucent at 0.45 — lighter than the briefs map's 0.75 — so the streets and place points inside
+// it stay readable, which matters here because Places is an explorer you look *into*. Hover a touch;
+// otherwise a light constant tint so the suburb reads as an overlay without washing out the points.
+export const PLACES_SUBURB_FILL_OPACITY: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  0.45,
+  ["boolean", ["feature-state", "hover"], false],
+  0.28,
+  0.12,
+];
+export const PLACES_SUBURB_LINE_COLOR: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  MAP_COLORS.selectedLine,
+  MAP_COLORS.line,
+];
+// Lines stay clearly visible at every zoom (a navigation grid), not faded away — so the suburb
+// overlay reads like the dashboard and briefs maps. Selected is the heavier near-black border.
+export const PLACES_SUBURB_LINE_OPACITY: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  1,
+  0.55,
+];
+export const PLACES_SUBURB_LINE_WIDTH: ExpressionSpecification = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  2.5,
+  0.9,
+];
+
+// The selected place marker ring: a place's equivalent of the selected-suburb border, the same
+// near-black accent at a consistent weight.
+export const SELECTED_PLACE_RING = {
+  radius: 9,
+  strokeWidth: 3,
+  strokeColor: MAP_COLORS.selectedLine,
+} as const;
+
 // Shared status copy so both maps say the same thing in the same state.
 export const MAP_STATUS_COPY = {
   loading: "Loading map",
