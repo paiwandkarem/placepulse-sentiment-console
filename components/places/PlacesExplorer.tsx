@@ -138,14 +138,14 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
       {/* Floating controls. The wrapper ignores pointer events so the map stays draggable; the
           controls themselves re-enable them. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 p-4">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               track("places_searched", { query: queryInput.trim(), category: category || "all" });
               applyFilters({});
             }}
-            className="pointer-events-auto flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 shadow-md"
+            className="pointer-events-auto flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 shadow-md focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 md:h-10"
           >
             <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
             <input
@@ -153,7 +153,7 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
               onChange={(event) => setQueryInput(event.target.value)}
               placeholder="Search places by name"
               aria-label="Search places by name"
-              className="h-full w-44 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 sm:w-56"
+              className="h-full w-44 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-500 sm:w-56"
             />
           </form>
 

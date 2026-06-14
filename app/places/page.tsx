@@ -21,7 +21,7 @@ export default async function PlacesPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[100dvh] w-full items-center justify-center bg-gray-50">
+        <div className="flex h-[100dvh] w-full items-center justify-center bg-gray-50" role="status" aria-label="Loading places">
           <Spinner />
         </div>
       }

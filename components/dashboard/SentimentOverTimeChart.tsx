@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import { TrendingUp } from "lucide-react";
 import type { EChartsOption } from "echarts";
 import { Card } from "@/components/ui/Card";
 import type { SentimentTrendPoint } from "@/lib/types";
@@ -69,8 +70,12 @@ export function SentimentOverTimeChart({ trend }: { trend: SentimentTrendPoint[]
   return (
     <Card>
       {trend.length === 0 ? (
-        <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-gray-200 text-sm text-gray-500">
-          No sentiment history available for this suburb.
+        <div className="flex h-72 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 px-6 text-center">
+          <TrendingUp className="h-6 w-6 text-gray-400" aria-hidden="true" />
+          <p className="text-sm font-semibold text-gray-700">No sentiment history yet</p>
+          <p className="text-xs text-gray-500">
+            We do not have enough months of reviews to chart a trend for this suburb. Try another suburb above.
+          </p>
         </div>
       ) : (
         <div role="img" aria-label="Grouped bar chart of monthly overall sentiment across the most recent three years.">

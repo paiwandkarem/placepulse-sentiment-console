@@ -105,7 +105,7 @@ export function SearchableDropdown({
               onChange={(event) => setQuery(event.target.value)}
               placeholder={placeholder}
               aria-label="Search options"
-              className="h-8 w-full rounded-md border border-gray-200 px-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+              className="h-8 w-full rounded-md border border-gray-200 px-2 text-sm text-gray-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto pb-1">

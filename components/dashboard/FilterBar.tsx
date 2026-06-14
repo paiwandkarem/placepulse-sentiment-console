@@ -64,7 +64,13 @@ export function FilterBar({
 
   return (
     <div className="w-full overflow-x-auto overscroll-x-contain rounded-xl border border-gray-200 bg-white px-4 py-3 font-sans shadow-sm">
-      <div className="flex min-w-max flex-row items-center gap-5 whitespace-nowrap">
+      <div
+        className={cn(
+          "flex min-w-max flex-row items-center gap-5 whitespace-nowrap transition-opacity",
+          isPending && "opacity-60",
+        )}
+        aria-busy={isPending}
+      >
         <Field label="Suburb">
           <SearchableDropdown
             value={selected.areaName}

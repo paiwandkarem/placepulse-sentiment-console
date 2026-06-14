@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { Check, Loader2, TriangleAlert } from "lucide-react";
+import { Check, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
 
 // One entry in the assistant's tool timeline. Each tool the model calls shows up as a collapsible
 // row: a plain-language label and a status icon by default, expanding to the exact input it sent
@@ -55,8 +55,8 @@ export function ToolCallView({ part }: { part: MessagePart }) {
   const failed = state === "output-error";
 
   return (
-    <details className="rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-600">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5">
+    <details className="group rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-600">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-gray-100">
         {failed ? (
           <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-rose-500" />
         ) : running ? (
@@ -65,6 +65,10 @@ export function ToolCallView({ part }: { part: MessagePart }) {
           <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
         )}
         <span className="font-medium text-gray-700">{label}</span>
+        <ChevronRight
+          className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-90"
+          aria-hidden="true"
+        />
       </summary>
       <div className="space-y-2 border-t border-gray-200 px-2.5 py-2">
         {tool.input != null && (

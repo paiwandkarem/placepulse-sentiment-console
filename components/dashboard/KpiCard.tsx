@@ -71,6 +71,7 @@ export function KpiCard({
 function format(value: number | null | undefined, metric: Metric, unit: string): string {
   if (value == null || Number.isNaN(value)) return "-";
   if (metric === "percent") return `${value.toFixed(2)}%`;
-  if (unit === "/ 5") return value.toFixed(2);
+  // Headline /100 and /5 values read cleaner at one decimal; avoids false precision like "87.54 / 100".
+  if (unit === "/ 100" || unit === "/ 5") return value.toFixed(1);
   return value.toFixed(2);
 }
