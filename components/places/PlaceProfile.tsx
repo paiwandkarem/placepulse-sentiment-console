@@ -4,6 +4,7 @@ import { getPlaceProfile } from "@/lib/services/placesService";
 import { Pagination } from "@/components/places/Pagination";
 import { Card } from "@/components/ui/Card";
 import { PlaceImage } from "@/components/ui/PlaceImage";
+import { PlaceGalleryProvider, GalleryImage } from "@/components/places/PlaceGallery";
 import { Avatar } from "@/components/ui/Avatar";
 import { placeStaticMapUrl } from "@/lib/map/staticMap";
 import { SENTIMENT_TOKENS } from "@/lib/ui/sentiment";
@@ -32,17 +33,22 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
   const maxMentions = Math.max(1, ...words.map((word) => word.mentions));
   const mapUrl = placeStaticMapUrl(detail.lat, detail.lon, { width: 480, height: 220 });
 
+  // The hero plus the photo strip, deduped, drive one shared lightbox. The static locator map is not
+  // part of it.
+  const galleryImages = [...new Set([detail.mainImage, ...detail.photos].filter((src): src is string => Boolean(src)))];
+
   function reviewHref(page: number): string {
     const base = `/places/${encodeURIComponent(detail.placeId)}`;
     return page > 1 ? `${base}?rpage=${page}` : base;
   }
 
   return (
+    <PlaceGalleryProvider images={galleryImages} name={detail.name || "Place"}>
     <div className="@container">
       <div className="mb-6 flex flex-col gap-4 @2xl:flex-row @2xl:items-end @2xl:justify-between">
         <div className="flex items-start gap-4">
           <div className="relative aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-xl border border-gray-200 @xl:w-36">
-            <PlaceImage src={detail.mainImage} alt={detail.name || "Place photo"} sizes="(min-width: 36rem) 144px, 96px" />
+            <GalleryImage src={detail.mainImage} alt={detail.name || "Place photo"} sizes="(min-width: 36rem) 144px, 96px" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
@@ -68,8 +74,8 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                   <a
                     href={detail.website}
                     target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:shadow-sm"
                   >
                     <Globe className="h-3.5 w-3.5" aria-hidden="true" />
                     Website
@@ -79,8 +85,8 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                   <a
                     href={detail.googleMapsUrl}
                     target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:shadow-sm"
                   >
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                     Google Maps
@@ -91,7 +97,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Stat label="Rating" value={detail.rating ? `${detail.rating.toFixed(1)} / 5` : "—"} icon />
+          <Stat label="Rating" value={detail.rating ? `${detail.rating.toFixed(1)} / 5` : "Not rated"} icon />
           <Stat label="Reviews" value={detail.reviewsCount.toLocaleString()} />
           <Stat label="Themes" value={String(themes.length)} />
         </div>
@@ -116,7 +122,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {detail.photos.slice(0, 6).map((photo, index) => (
                     <div key={photo} className="relative aspect-square overflow-hidden rounded-lg border border-gray-200">
-                      <PlaceImage src={photo} alt={`${detail.name} photo ${index + 1}`} sizes="120px" />
+                      <GalleryImage src={photo} alt={`${detail.name} photo ${index + 1}`} sizes="120px" />
                     </div>
                   ))}
                 </div>
@@ -185,7 +191,7 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
                           )}
                           <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
                             <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
-                            {review.rating ? review.rating.toFixed(1) : "—"}
+                            {review.rating ? review.rating.toFixed(1) : "-"}
                           </span>
                           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${token.soft}`}>
                             {token.label}
@@ -210,12 +216,13 @@ export async function PlaceProfile({ placeId, reviewPage }: { placeId: string; r
         </div>
       </div>
     </div>
+    </PlaceGalleryProvider>
   );
 }
 
 function Stat({ label, value, icon }: { label: string; value: string; icon?: boolean }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-center shadow-sm">
+    <div className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-center shadow-sm @2xl:flex-none">
       <div className="inline-flex items-center gap-1 text-lg font-bold text-gray-900">
         {icon && <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />}
         {value}

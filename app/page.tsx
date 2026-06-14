@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import dayjs from "dayjs";
+import { Database } from "lucide-react";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { SentimentKpiCards } from "@/components/dashboard/SentimentKpiCards";
@@ -115,15 +116,15 @@ export default async function Home({ searchParams }: PageProps) {
               <>
                 {!isOverall && (
                   <div className="mb-8 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm">
-                    <span className="font-semibold text-gray-900">
+                    <span className="text-lg font-semibold text-gray-900">
                       {context.filters.category}
                       {rank > 0 && (
-                        <span className="font-normal text-gray-600">
+                        <span className="text-sm font-normal text-gray-600">
                           {" "}
                           &middot; #{rank} of {total} categories in {context.filters.areaName}
                         </span>
                       )}{" "}
-                      <span className="font-normal text-gray-600">&middot; {score.toFixed(1)}/100</span>
+                      <span className="text-sm font-normal text-gray-600">&middot; {score.toFixed(1)}/100</span>
                     </span>
                     <Link
                       href={`/?aggType=mthly_suburb&areaName=${encodeURIComponent(context.filters.areaName)}`}
@@ -205,12 +206,18 @@ export default async function Home({ searchParams }: PageProps) {
             );
           })()
         ) : (
-          <Card title="No sentiment data for this selection">
-            <p className="text-sm text-gray-600">
-              {recovery
-                ? "Try a different area, category, period or granularity above."
-                : "No sentiment data has been imported yet. Run the importer to load data."}
-            </p>
+          <Card>
+            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
+                <Database className="h-5 w-5 text-gray-500" aria-hidden="true" />
+              </span>
+              <h2 className="text-base font-semibold text-gray-900">No Sentiment Data For This Selection</h2>
+              <p className="max-w-md text-sm text-gray-600">
+                {recovery
+                  ? "Try a different area, category, period or granularity above."
+                  : "No sentiment data has been imported yet. Run the importer to load data."}
+              </p>
+            </div>
           </Card>
         )}
       </div>
@@ -221,8 +228,8 @@ export default async function Home({ searchParams }: PageProps) {
       {/* Map slide-over drawer: opens instantly on client state, map loads inside it */}
       <MapDrawer suburbs={catalogue?.areaNames ?? []} selected={selected?.areaName ?? null} />
 
-      {/* Docked copilot: the assistant, mounted on the dashboard */}
-      <AssistantDock />
+      {/* Docked copilot: the assistant, seeded with the current selection so it answers in context */}
+      <AssistantDock areaName={selected?.areaName} category={selected?.category} />
     </MapDrawerProvider>
   );
 }

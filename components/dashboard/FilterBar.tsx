@@ -11,9 +11,10 @@ import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { useMapDrawer } from "./MapDrawerContext";
 import type { FilterCatalogue, RequiredSentimentFilters } from "@/lib/types";
 
-// "Overall" is the no-category view (the suburb-level monthly aggregate). It sits at the top of
-// the category control as the default, with each category below it as a drill-down.
-const OVERALL = "Overall";
+// "All categories" is the no-category view (the suburb-level monthly aggregate). It sits at the top
+// of the category control as the default, with each category below it as a drill-down. The label is
+// kept identical to the Places explorer so the unfiltered default reads the same across surfaces.
+const ALL_CATEGORIES = "All categories";
 
 // Horizontal filter strip: Area, map toggle, Category. There is no period control: the
 // dashboard always shows the latest month as the snapshot and the full trend over time. The
@@ -52,7 +53,7 @@ export function FilterBar({
   // Overall clears the category and reads the suburb-level aggregate; a specific category reads
   // the per-category aggregate.
   function selectCategory(value: string) {
-    const category = value === OVERALL ? undefined : value;
+    const category = value === ALL_CATEGORIES ? undefined : value;
     track("dashboard_filter_changed", { kind: "category", value });
     navigate((next) => {
       next.set("aggType", aggTypeForCategory(category));
@@ -63,7 +64,13 @@ export function FilterBar({
 
   return (
     <div className="w-full overflow-x-auto overscroll-x-contain rounded-xl border border-gray-200 bg-white px-4 py-3 font-sans shadow-sm">
-      <div className="flex min-w-max flex-row items-center gap-5 whitespace-nowrap">
+      <div
+        className={cn(
+          "flex min-w-max flex-row items-center gap-5 whitespace-nowrap transition-opacity",
+          isPending && "opacity-60",
+        )}
+        aria-busy={isPending}
+      >
         <Field label="Suburb">
           <SearchableDropdown
             value={selected.areaName}
@@ -93,8 +100,8 @@ export function FilterBar({
 
         <Field label="Category">
           <SearchableDropdown
-            value={selected.category ?? OVERALL}
-            options={[OVERALL, ...catalogue.categories]}
+            value={selected.category ?? ALL_CATEGORIES}
+            options={[ALL_CATEGORIES, ...catalogue.categories]}
             disabled={isPending}
             placeholder="Search categories"
             onSelect={selectCategory}

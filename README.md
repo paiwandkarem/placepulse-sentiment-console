@@ -7,22 +7,25 @@ It was built as a **Vercel Solutions Architect take-home assessment**. The goal 
 The project intentionally covers both assessment paths:
 
 * **Frontend Cloud**: a dynamic analytics dashboard with server rendering, client-side interactivity, caching, revalidation and Core Web Vitals discipline.
-* **AI Cloud**: a Vercel AI SDK assistant with grounded tool use over the live data, with briefs and evaluation checks on the roadmap.
+* **AI Cloud**: a Vercel AI SDK assistant with grounded tool use over the live data, generative tool cards, durable AI-generated PDF briefs, and grounding evals.
+
+> **Reviewer access:** the deployed app is sign-in gated with Clerk. Create an account on the deployed URL (development instance, any email works) to explore every surface.
 
 ## Current status
 
-This is built commit by commit. What exists today versus what is planned:
+Built commit by commit. Every core surface is now built:
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| Dashboard (`/`) | Built | KPIs, trend, category breakdown, theme drivers, word cloud, distributions, suburb map. |
-| Assistant (docked copilot) | Built | Streaming chat grounded in the data, a tool-call audit timeline, markdown and tables, a maximize toggle. |
-| Assistant (full-screen page) | Planned | Same engine, a dedicated `/assistant` route. |
-| Briefs (`/briefs`) | Planned | Executive PDF briefs generated with the AI SDK and stored on Vercel Blob. |
-| Evals | Planned | Lightweight grounding checks over the assistant. |
-| Places explorer (`/places`) | Planned | Queensland business directory, place detail pages and a point map over the POI dataset. |
+| Dashboard (`/`) | Built | KPIs, three-year trend, category breakdown, theme drivers, word cloud, distributions, suburb boundary map. |
+| Assistant (docked copilot) | Built | Streaming grounded chat that can drive the dashboard filters by chat; generative tool cards over an audit timeline. |
+| Assistant (full-screen page, `/assistant`) | Built | Same engine with per-user, resumable conversation threads. |
+| Briefs (`/briefs`) | Built | Durable AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum); suburbs chosen on a map. |
+| Evals | Built | Grounding checks (right tool called, figures match the data, out-of-coverage declines), stored in `eval_runs`, runnable in CI. |
+| Places explorer (`/places`) | Built | Queensland business directory, place detail slide-overs with imagery, and a clustered point map over the POI dataset. |
+| Auth | Built | Clerk via the Vercel Marketplace; the app is sign-in gated and AI/brief data is scoped per user. |
 
-The full build plan lives in `docs/ai-cloud-plan.md`, and the architectural reasoning lives in `docs/architecture-decisions.md`.
+The build plan lives in `docs/ai-cloud-plan.md`, the architecture narrative in `docs/architecture-overview.md`, and the commit-level reasoning in `docs/architecture-decisions.md`.
 
 ## Problem
 
@@ -47,14 +50,15 @@ PlacePulse turns suburb-level sentiment data into a fast dashboard and a grounde
 
 ## Product summary
 
-Today the application allows users to:
+The application lets users:
 
-* filter sentiment by suburb, category, granularity and month
-* view satisfaction, rating, review volume and year-on-year KPIs
-* inspect sentiment trends over time
-* review theme drivers, a word cloud, and star and label distributions
+* filter suburb sentiment by suburb and category, with the latest month as the snapshot and a three-year trend
+* view satisfaction, rating, review-volume and year-on-year KPIs, theme drivers, a word cloud, and star and label distributions
 * select a suburb visually from a Queensland boundary map
-* ask natural-language questions about suburb sentiment, the themes behind it, and specific places and their review quotes, answered only from the data
+* ask natural-language questions about suburb sentiment, the themes behind it, and specific places and their review quotes, answered only from the data, with the assistant able to drive the dashboard filters by chat
+* resume past assistant conversations as threads on the full-screen `/assistant` page
+* generate durable executive PDF briefs in four report types, choosing the suburbs on a map
+* explore the Queensland places directory, with place detail (imagery, themes, real reviews) and a clustered point map
 
 ## The two datasets
 
@@ -113,8 +117,12 @@ The app is deployed on Vercel and uses Vercel-native patterns:
 * Fluid Compute for the assistant route, so an interactive endpoint stays warm between turns
 * the **Vercel AI Gateway** for model access, addressed by `provider/model` slug, with OIDC auth on Vercel and an `AI_GATEWAY_API_KEY` for local development
 * Vercel Marketplace Postgres through Neon
-* Vercel Blob to host the suburb boundary GeoJSON, kept out of the app bundle and pointed at by an environment variable
+* **Vercel Blob** to store the generated brief PDFs
+* **Clerk via the Vercel Marketplace** for authentication, with `proxy.ts` (the Next 16 middleware convention, Node runtime) gating the app and the AI write routes
+* `after()` to run the slow brief generation off the response path so the render never blocks the request
 * Vercel Analytics and Speed Insights for observability
+
+The Queensland boundary GeoJSON is a static asset served from the CDN (pointed at by an environment variable), not the app bundle.
 
 ### Postgres / Neon
 
@@ -173,7 +181,7 @@ The assistant streams token by token over a Route Handler using the Vercel AI SD
 
 ## AI features
 
-PlacePulse includes a grounded conversational assistant, mounted today as a docked copilot on the dashboard.
+PlacePulse includes a grounded conversational assistant, mounted as a docked copilot on the dashboard and as a full-screen workspace at `/assistant` with resumable per-user threads.
 
 Example questions:
 
@@ -192,18 +200,29 @@ The assistant answers only from tool output. It does not answer from memory and 
 * **A grounding contract** (`lib/assistant/systemPrompt.ts`): answer only from tool results, name the figure and the suburb or place it came from, and never invent a number, suburb or business.
 * **Persistence** (`lib/assistant/sessions.ts`): each completed turn is written to `chat_sessions` after the response is delivered, so the write never sits on the response path.
 * **Rendering**: assistant markdown (including tables) renders with **Streamdown**, and a tool-call timeline shows each tool, its input and its output so every answer is auditable.
+* **Generative UI**: tool results also render as rich cards (suburb KPIs, an SVG trend sparkline, place cards with locator maps, a head-to-head compare) above the audit timeline.
+* **Driving the product**: a `setDashboardFilter` tool returns a typed action the dashboard applies to its URL filters, so a chat turn changes what the dashboard shows.
+* **Threads**: the full-screen page lists and resumes past conversations (`useChat` id plus stored messages), scoped per user; the dock stays contextual and ephemeral.
+
+### Briefs
+
+`/briefs` generates executive PDF briefs in four report types over one pipeline: a schema-constrained `generateObject` call drafts the prose, `@react-pdf/renderer` renders the document, the PDF is stored in Vercel Blob, and the job is recorded in `brief_jobs`. Generation runs off the response path via `after()`, and the page polls the job to completion. The four types (overview, suburb comparison, category deep-dive, momentum) are a discriminated union over the shared runner, each with its own content schema and template. Suburbs are chosen on a map, with a satisfaction choropleth for the category deep-dive.
+
+### Evals
+
+`npm run evals` runs a grounding suite (`lib/evals/*`) against the assistant tools: the right tool is called, the cited figures match the data, real entities are used, and out-of-coverage questions decline. Each run is recorded in `eval_runs`, and the suite is wired into CI.
 
 ## Tech stack
 
 * Next.js App Router (Turbopack), React 19, TypeScript
-* Tailwind CSS v4 and flowbite-react
-* Vercel, Vercel Functions (Fluid Compute), Vercel AI Gateway
+* Tailwind CSS v4, lucide-react icons
+* Vercel, Vercel Functions (Fluid Compute), Vercel AI Gateway, Vercel Blob, Clerk auth (Vercel Marketplace)
 * Vercel AI SDK (`ai` and `@ai-sdk/react`) with Streamdown
 * Neon Postgres (`@neondatabase/serverless` HTTP driver); `pg` and `pg-copy-streams` for the bulk loader
 * Zod for validation, `csv-parse` for ingestion
 * ECharts and ApexCharts for visualisations
 * Mapbox GL, Turf and Terraformer for the suburb map
-* React PDF Renderer and Vercel Blob for the planned briefs
+* React PDF Renderer for the AI-generated brief PDFs
 * Vercel Analytics and Speed Insights
 
 ## Project structure
@@ -284,6 +303,13 @@ Required for the assistant:
 AI_GATEWAY_API_KEY=
 ```
 
+Required for authentication (Clerk):
+
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+```
+
 Optional:
 
 ```env
@@ -336,7 +362,7 @@ Open `http://localhost:3000`.
 }
 ```
 
-The `evals` script (and therefore `ci`) is reserved for the planned evaluation suite and is not wired up yet.
+The `evals` script runs the grounding suite in `lib/evals/*` against the assistant tools and records each run in `eval_runs`.
 
 ## Deployment
 

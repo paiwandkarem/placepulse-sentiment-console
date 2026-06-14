@@ -14,7 +14,11 @@ import { AssistantChat } from "./AssistantChat";
 // It is a non-modal dock (the dashboard stays usable beside it), so it does not trap focus. It does
 // move focus into the panel on open and return it to the launcher on close, and Escape closes it.
 
-export function AssistantDock() {
+// areaName/category are the dashboard's current selection, seeded into the dock so its answers
+// reference the live view. The dock is contextual and ephemeral: it mounts a fresh chat each time it
+// opens and its turns are stored under the 'dock' surface, so they never appear in the page's thread
+// list.
+export function AssistantDock({ areaName, category }: { areaName?: string; category?: string }) {
   const [open, setOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -57,7 +61,7 @@ export function AssistantDock() {
               </span>
               <div className="leading-tight">
                 <p className="text-sm font-semibold text-gray-900">Assistant</p>
-                <p className="text-[11px] text-gray-500">Grounded in Queensland review data</p>
+                <p className="text-xs text-gray-500">Answers read from Queensland review data</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -79,7 +83,7 @@ export function AssistantDock() {
               </button>
             </div>
           </header>
-          <AssistantChat className="flex-1" />
+          <AssistantChat surface="dock" contextFilters={{ areaName, category }} className="flex-1" />
         </div>
       )}
 

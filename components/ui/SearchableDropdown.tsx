@@ -47,7 +47,12 @@ export function SearchableDropdown({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
-    function onReposition() {
+    function onReposition(event: Event) {
+      // A scroll inside the menu's own option list must not close it; only an outside scroll (which
+      // would detach the fixed-position menu from its trigger) should. Resize always closes.
+      if (event.type === "scroll" && event.target instanceof Node && panelRef.current?.contains(event.target)) {
+        return;
+      }
       setOpen(false);
     }
     document.addEventListener("pointerdown", onPointer);
@@ -100,7 +105,7 @@ export function SearchableDropdown({
               onChange={(event) => setQuery(event.target.value)}
               placeholder={placeholder}
               aria-label="Search options"
-              className="h-8 w-full rounded-md border border-gray-200 px-2 text-sm text-gray-900 outline-none focus:border-gray-400"
+              className="h-8 w-full rounded-md border border-gray-200 px-2 text-sm text-gray-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto pb-1">

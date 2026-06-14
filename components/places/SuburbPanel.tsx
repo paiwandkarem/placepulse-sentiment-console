@@ -86,10 +86,10 @@ export function SuburbPanel({ suburb, onClear }: { suburb: string; onClear: () =
             </div>
 
             {overview.working.length > 0 && (
-              <DriverList title="What is working" drivers={overview.working} color="text-emerald-700" valueKey="positivePct" />
+              <DriverList title="What's working" drivers={overview.working} color="text-emerald-700" valueKey="positivePct" />
             )}
             {overview.notWorking.length > 0 && (
-              <DriverList title="Needs attention" drivers={overview.notWorking} color="text-rose-700" valueKey="negativePct" />
+              <DriverList title="What's not working" drivers={overview.notWorking} color="text-rose-700" valueKey="negativePct" />
             )}
 
             <Link
@@ -110,7 +110,7 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5">
       <div className={`text-sm font-bold ${accent ?? "text-gray-900"}`}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-500">{label}</div>
     </div>
   );
 }

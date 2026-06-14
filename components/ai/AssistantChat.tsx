@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { track } from "@vercel/analytics";
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Loader2, Square, TriangleAlert } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/ui/sentiment";
+import type { ChatSurface } from "@/lib/assistant/sessions";
 import { ToolResult } from "./ToolResult";
 
 // The shared assistant chat: message list, streaming tool timeline, and the composer. It is mounted
 // in two places (the dashboard dock and the full-screen page), so it owns the conversation but not
 // the chrome around it, the caller sizes it with className.
 //
-// useChat streams from /api/assistant over the transport below. There is no built-in input state in
-// this version of the SDK, so the composer is a plain controlled textarea that calls sendMessage.
-
-// One transport for the endpoint, created once rather than on every render.
-const transport = new DefaultChatTransport({ api: "/api/assistant" });
+// useChat streams from /api/assistant over the transport below. The transport carries the surface
+// (page vs dock) so a turn persists to the right kind of session; the chat id (a thread) is sent
+// automatically, so the page can resume a saved thread by passing its id and stored messages. There
+// is no built-in input state in this SDK version, so the composer is a controlled textarea.
 
 const SUGGESTIONS = [
   "How satisfied are visitors with Brisbane City?",
@@ -26,8 +26,38 @@ const SUGGESTIONS = [
   "Compare Fortitude Valley and South Brisbane",
 ];
 
-export function AssistantChat({ className }: { className?: string }) {
-  const { messages, sendMessage, status, error, stop } = useChat({ transport });
+export function AssistantChat({
+  className,
+  id,
+  initialMessages,
+  surface = "assistant",
+  contextFilters,
+}: {
+  className?: string;
+  id?: string;
+  initialMessages?: UIMessage[];
+  surface?: ChatSurface;
+  contextFilters?: { areaName?: string; category?: string };
+}) {
+  // One transport per surface, carrying the current dashboard selection when the dock provides it so
+  // the model can ground an ambiguous question in the live view. Memoised on a stable key, since the
+  // contextFilters object is a fresh reference each render.
+  const contextKey = contextFilters ? JSON.stringify(contextFilters) : "";
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/assistant", body: { surface, filters: contextFilters } }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [surface, contextKey],
+  );
+  // Only pass `id` when we actually have one. useChat recreates its underlying Chat on every render
+  // whenever an `id` key is present but undefined, because the Chat it builds generates its own id
+  // that never equals undefined. That recreation silently discards the streaming state, so nothing
+  // renders live. A resumed thread passes a real id (stable, so no recreation); a fresh chat or the
+  // dock passes none.
+  const { messages, sendMessage, status, error, stop } = useChat({
+    ...(id ? { id } : {}),
+    messages: initialMessages,
+    transport,
+  });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -90,7 +120,7 @@ export function AssistantChat({ className }: { className?: string }) {
                   key={suggestion}
                   type="button"
                   onClick={() => send(suggestion)}
-                  className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-xs text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                  className="block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-xs text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                 >
                   {suggestion}
                 </button>
@@ -124,8 +154,18 @@ export function AssistantChat({ className }: { className?: string }) {
             ),
           )
         )}
-        {status === "submitted" && <p className="text-xs text-gray-400">Thinking...</p>}
-        {error && <p className="text-xs text-rose-600">Something went wrong. Please try again.</p>}
+        {status === "submitted" && (
+          <div className="inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" aria-hidden="true" />
+            Thinking...
+          </div>
+        )}
+        {error && (
+          <div className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-600">
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Something went wrong. Please try again.
+          </div>
+        )}
       </div>
 
       <form
@@ -135,7 +175,7 @@ export function AssistantChat({ className }: { className?: string }) {
         }}
         className="border-t border-gray-200 p-3"
       >
-        <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 focus-within:border-gray-400">
+        <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-100">
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}

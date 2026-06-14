@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { AppShell } from "@/components/shell/AppShell";
 import "./globals.css";
 
@@ -26,14 +27,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
-      <body className="min-h-full bg-gray-50 font-sans text-gray-900">
-        <AppShell>{children}</AppShell>
-        {/* Vercel Analytics (page/usage) and Speed Insights (Core Web Vitals). Both inject a
-            tiny client script and report from the deployed app; they no-op locally. */}
-        <Analytics />
-        <SpeedInsights />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
+        <body className="min-h-full bg-gray-50 font-sans text-gray-900">
+          <AppShell>{children}</AppShell>
+          {/* Vercel Analytics (page/usage) and Speed Insights (Core Web Vitals). Both inject a
+              tiny client script and report from the deployed app; they no-op locally. */}
+          <Analytics />
+          <SpeedInsights />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

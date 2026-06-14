@@ -175,7 +175,7 @@ function TooltipShareRow({
 // when prior-year data merged in. Anchored to the row, it overlays on hover.
 function BreakdownTooltip({ t }: { t: EnrichedTheme }) {
   return (
-    <div className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden w-72 rounded-lg border border-gray-200 bg-white p-3 text-xs shadow-xl group-hover:block">
+    <div className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white p-3 text-xs shadow-xl group-hover:block">
       <div className="mb-1.5 font-semibold text-gray-900">{t.label}</div>
       <div className="space-y-0.5">
         <TooltipShareRow
@@ -262,7 +262,7 @@ function SingleSideRow({ t, rank, side }: { t: EnrichedTheme; rank: number; side
             <YoyDelta delta={delta} direction={direction} />
           </div>
         ) : null}
-        <div className="text-[11px] tabular-nums text-gray-400">{reviews.toLocaleString("en-AU")} reviews</div>
+        <div className="mt-0.5 text-[11px] tabular-nums text-gray-400">{reviews.toLocaleString("en-AU")} reviews</div>
       </div>
       <BreakdownTooltip t={t} />
     </li>

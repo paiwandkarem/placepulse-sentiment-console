@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { auth } from "@clerk/nextjs/server";
 import { listAvailableFilters } from "@/lib/services/sentimentService";
 import { listBriefJobs } from "@/lib/briefs/repository";
 import { BriefsView } from "@/components/briefs/BriefsView";
@@ -14,7 +15,13 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function BriefsPage() {
-  const [catalogue, briefs] = await Promise.all([listAvailableFilters(), listBriefJobs()]);
+  // Middleware guarantees a signed-in user here; we still read the id so the list only ever shows
+  // this user's briefs.
+  const { userId } = await auth();
+  const [catalogue, briefs] = await Promise.all([
+    listAvailableFilters(),
+    userId ? listBriefJobs(userId) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="px-4 pb-16 pt-6 md:px-8">

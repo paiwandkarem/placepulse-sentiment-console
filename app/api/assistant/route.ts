@@ -3,7 +3,8 @@ import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 
 import { model } from "@/lib/ai/model";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
 import { assistantTools } from "@/lib/assistant/tools";
-import { saveChatSession } from "@/lib/assistant/sessions";
+import { saveChatSession, type ChatSurface } from "@/lib/assistant/sessions";
+import { auth } from "@clerk/nextjs/server";
 
 // The assistant endpoint. It runs the conversation through the model with the grounded read tools
 // and streams the answer back in the UI-message protocol that useChat consumes. A route handler is
@@ -22,11 +23,22 @@ export const maxDuration = 60;
 type AssistantRequest = {
   id?: string;
   messages?: UIMessage[];
+  // Which surface the turn came from: the assistant page keeps a browsable thread history, the dock
+  // is contextual and never listed.
+  surface?: ChatSurface;
   // The dashboard filter state, sent once the copilot is docked (A6). Stored with the session.
   filters?: unknown;
 };
 
 export async function POST(request: Request): Promise<Response> {
+  // The assistant spends model tokens, so it fails closed: a request without a signed-in user is
+  // rejected before any work. proxy.ts already gates the surface; this is defence in depth at the
+  // API itself, and it gives us the owner id to scope the saved conversation.
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Sign in to use the assistant.", { status: 401 });
+  }
+
   let body: AssistantRequest;
   try {
     body = (await request.json()) as AssistantRequest;
@@ -40,11 +52,19 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const sessionId = body.id ?? crypto.randomUUID();
+  const surface: ChatSurface = body.surface === "dock" ? "dock" : "assistant";
   const modelMessages = await convertToModelMessages(messages);
+
+  // When the dock sends the current dashboard selection, fold it into the system prompt so an
+  // ambiguous question ("what about restaurants?") resolves to the suburb the user is looking at.
+  const filters = body.filters as { areaName?: string; category?: string } | undefined;
+  const contextHint = filters?.areaName
+    ? `\n\nThe user is currently viewing the dashboard for ${filters.areaName}${filters.category ? `, category ${filters.category}` : " (all categories)"}. When a question does not name a suburb, assume they mean this one.`
+    : "";
 
   const result = streamText({
     model: model("assistant"),
-    system: ASSISTANT_SYSTEM_PROMPT,
+    system: ASSISTANT_SYSTEM_PROMPT + contextHint,
     messages: modelMessages,
     tools: assistantTools,
     stopWhen: stepCountIs(8),
@@ -57,7 +77,7 @@ export async function POST(request: Request): Promise<Response> {
       // path. after() lets the work finish on Fluid Compute once the response has been sent.
       after(async () => {
         try {
-          await saveChatSession({ id: sessionId, messages: finalMessages, filters: body.filters });
+          await saveChatSession({ id: sessionId, userId, surface, messages: finalMessages, filters: body.filters });
         } catch (error) {
           console.error("Failed to persist chat session", sessionId, error);
         }

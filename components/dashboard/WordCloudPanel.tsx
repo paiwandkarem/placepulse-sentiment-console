@@ -245,15 +245,26 @@ function CombinedCloud({ items }: { items: WordItem[] }) {
 }
 
 function ViewToggle({ value, onChange }: { value: "split" | "combined"; onChange: (v: "split" | "combined") => void }) {
-  const base = "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors";
+  const base =
+    "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1";
   const active = "bg-white text-gray-900 shadow-sm";
   const inactive = "text-gray-500 hover:text-gray-800";
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-      <button type="button" onClick={() => onChange("split")} className={`${base} ${value === "split" ? active : inactive}`}>
+    <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Word cloud view">
+      <button
+        type="button"
+        onClick={() => onChange("split")}
+        aria-pressed={value === "split"}
+        className={`${base} ${value === "split" ? active : inactive}`}
+      >
         Side by side
       </button>
-      <button type="button" onClick={() => onChange("combined")} className={`${base} ${value === "combined" ? active : inactive}`}>
+      <button
+        type="button"
+        onClick={() => onChange("combined")}
+        aria-pressed={value === "combined"}
+        className={`${base} ${value === "combined" ? active : inactive}`}
+      >
         Combined
       </button>
     </div>

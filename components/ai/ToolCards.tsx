@@ -20,7 +20,7 @@ function clamp(value: number, min: number, max: number): number {
 
 function SentimentSplit({ positive, neutral, negative }: { positive: number; neutral: number; negative: number }) {
   return (
-    <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+    <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
       <span className="bg-emerald-500" style={{ width: `${positive}%` }} />
       <span className="bg-slate-300" style={{ width: `${neutral}%` }} />
       <span className="bg-rose-500" style={{ width: `${negative}%` }} />
@@ -32,7 +32,7 @@ function MiniKpi({ label, value, accent }: { label: string; value: string; accen
   return (
     <div className="rounded-lg bg-gray-50 px-2 py-1">
       <div className={`text-sm font-bold ${accent ?? "text-gray-900"}`}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-gray-600">{label}</div>
     </div>
   );
 }

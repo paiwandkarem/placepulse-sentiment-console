@@ -16,6 +16,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.69",
     "@ai-sdk/react": "^3.0.201",
+    "@clerk/nextjs": "^7.5.2",
     "@neondatabase/serverless": "^1.1.0",
     "@react-pdf/renderer": "^4.5.1",
     "@terraformer/wkt": "^2.2.1",
