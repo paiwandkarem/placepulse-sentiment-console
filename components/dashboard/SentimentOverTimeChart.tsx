@@ -78,8 +78,12 @@ export function SentimentOverTimeChart({ trend }: { trend: SentimentTrendPoint[]
           </p>
         </div>
       ) : (
-        <div role="img" aria-label="Grouped bar chart of monthly overall sentiment across the most recent three years.">
-          <ReactECharts option={option} style={{ height: 340 }} lazyUpdate />
+        <div
+          role="img"
+          aria-label="Grouped bar chart of monthly overall sentiment across the most recent three years."
+          className="h-72 sm:h-80 md:h-[340px]"
+        >
+          <ReactECharts option={option} style={{ height: "100%" }} lazyUpdate />
         </div>
       )}
     </Card>
