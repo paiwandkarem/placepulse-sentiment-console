@@ -55,9 +55,16 @@ export async function POST(request: Request): Promise<Response> {
   const surface: ChatSurface = body.surface === "dock" ? "dock" : "assistant";
   const modelMessages = await convertToModelMessages(messages);
 
+  // When the dock sends the current dashboard selection, fold it into the system prompt so an
+  // ambiguous question ("what about restaurants?") resolves to the suburb the user is looking at.
+  const filters = body.filters as { areaName?: string; category?: string } | undefined;
+  const contextHint = filters?.areaName
+    ? `\n\nThe user is currently viewing the dashboard for ${filters.areaName}${filters.category ? `, category ${filters.category}` : " (all categories)"}. When a question does not name a suburb, assume they mean this one.`
+    : "";
+
   const result = streamText({
     model: model("assistant"),
-    system: ASSISTANT_SYSTEM_PROMPT,
+    system: ASSISTANT_SYSTEM_PROMPT + contextHint,
     messages: modelMessages,
     tools: assistantTools,
     stopWhen: stepCountIs(8),

@@ -221,8 +221,8 @@ export default async function Home({ searchParams }: PageProps) {
       {/* Map slide-over drawer: opens instantly on client state, map loads inside it */}
       <MapDrawer suburbs={catalogue?.areaNames ?? []} selected={selected?.areaName ?? null} />
 
-      {/* Docked copilot: the assistant, mounted on the dashboard */}
-      <AssistantDock />
+      {/* Docked copilot: the assistant, seeded with the current selection so it answers in context */}
+      <AssistantDock areaName={selected?.areaName} category={selected?.category} />
     </MapDrawerProvider>
   );
 }
