@@ -59,7 +59,7 @@ function SuburbStat({ data }: { data: SuburbShape }) {
         <p className="truncate text-sm font-bold text-gray-900">{data.suburb}</p>
         <span className="shrink-0 text-base font-extrabold text-gray-900">
           {num(data.overallSatisfaction100)}
-          <span className="text-[11px] font-medium text-gray-400">/100</span>
+          <span className="text-[11px] font-medium text-gray-500">/100</span>
         </span>
       </div>
       <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
@@ -77,7 +77,7 @@ function SuburbSentimentCard({ output }: { output: SuburbShape }) {
   const category = output.category && output.category !== "overall" ? ` · ${output.category}` : "";
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
         Suburb sentiment{category}
       </p>
       <SuburbStat data={output} />
@@ -110,7 +110,7 @@ function TrendSparkline({ output }: { output: { suburb?: string; points?: { date
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           Trend{output.suburb ? ` · ${output.suburb}` : ""}
         </p>
         <span className={`text-xs font-bold ${up ? "text-emerald-600" : "text-rose-600"}`}>{Math.round(latest)}/100</span>
@@ -140,7 +140,7 @@ function PlacesListCard({ output }: { output: { suburb?: string; count?: number;
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
         Places{output.suburb ? ` in ${output.suburb}` : ""}
       </p>
       {shown.map((place) => (
@@ -162,12 +162,12 @@ function PlacesListCard({ output }: { output: { suburb?: string; count?: number;
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-600">
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
               {num(place.rating).toFixed(1)}
-              <span className="text-gray-400">· {num(place.reviewsCount).toLocaleString()} reviews</span>
+              <span className="text-gray-500">· {num(place.reviewsCount).toLocaleString()} reviews</span>
             </p>
           </div>
         </Link>
       ))}
-      {extra > 0 && <p className="text-[11px] text-gray-400">+{extra.toLocaleString()} more</p>}
+      {extra > 0 && <p className="text-[11px] text-gray-500">+{extra.toLocaleString()} more</p>}
     </div>
   );
 }
@@ -179,7 +179,7 @@ function CompareCard({ output }: { output: { found?: boolean; category?: string;
   const leads = delta === 0 ? null : delta > 0 ? output.a.suburb : output.b.suburb;
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Comparison{category}</p>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Comparison{category}</p>
       <div className="grid grid-cols-2 gap-3">
         <SuburbStat data={output.a} />
         <SuburbStat data={output.b} />

@@ -283,7 +283,7 @@ export function BriefsView({
                   ))}
                 </div>
               ) : (
-                <p className="mb-2 text-xs text-gray-400">Click a suburb on the map, or search below.</p>
+                <p className="mb-2 text-xs text-gray-500">Click a suburb on the map, or search below.</p>
               )}
               <SearchableDropdown
                 value=""
@@ -377,7 +377,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
       )}
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
-        <p className="text-xs text-gray-400">{new Date(brief.createdAt).toLocaleDateString()}</p>
+        <p className="text-xs text-gray-500">{new Date(brief.createdAt).toLocaleDateString()}</p>
         <div className="flex items-center gap-1.5">
           {brief.status === "completed" && brief.pdfBlobUrl && (
             <a
@@ -397,7 +397,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               onClick={() => onDelete(brief.id)}
               aria-label="Delete brief"
               title="Delete brief"
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-rose-50 hover:text-rose-600"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>

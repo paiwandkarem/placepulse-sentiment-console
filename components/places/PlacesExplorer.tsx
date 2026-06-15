@@ -196,14 +196,14 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
                   {place.rating ? place.rating.toFixed(1) : "-"}
                   <span className="text-amber-500"> ★</span>
                 </p>
-                <p className="text-[11px] text-gray-400">{place.reviewsCount.toLocaleString()} reviews</p>
+                <p className="text-[11px] text-gray-500">{place.reviewsCount.toLocaleString()} reviews</p>
               </div>
             </button>
           </li>
         ))}
       </ul>
       {points.length > listed.length && (
-        <p className="px-4 py-3 text-center text-xs text-gray-400">
+        <p className="px-4 py-3 text-center text-xs text-gray-500">
           Showing {listed.length} of {points.length.toLocaleString()}. Refine your search to narrow it down.
         </p>
       )}
@@ -226,7 +226,7 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
             }}
             className="flex h-10 w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500"
           >
-            <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+            <Search className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
             <input
               value={queryInput}
               onChange={(event) => setQueryInput(event.target.value)}

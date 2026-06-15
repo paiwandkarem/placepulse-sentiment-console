@@ -40,7 +40,7 @@ export function KpiCard({
 
       <div className="flex items-baseline gap-2">
         <span className="text-3xl font-bold text-gray-900">{format(value, metric, unit)}</span>
-        {unit && metric !== "percent" && <span className="text-sm font-medium text-gray-400">{unit}</span>}
+        {unit && metric !== "percent" && <span className="text-sm font-medium text-gray-500">{unit}</span>}
       </div>
 
       <div className="mt-3 flex items-center gap-2 text-xs">

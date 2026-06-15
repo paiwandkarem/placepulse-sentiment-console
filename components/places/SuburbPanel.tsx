@@ -48,14 +48,14 @@ export function SuburbPanel({ suburb, onClear }: { suburb: string; onClear: () =
     <div className="pointer-events-auto absolute left-4 top-[4.75rem] z-30 w-[18.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur">
       <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Suburb overview</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Suburb overview</p>
           <p className="text-base font-bold text-gray-900">{suburb}</p>
         </div>
         <button
           type="button"
           onClick={onClear}
           aria-label="Clear suburb"
-          className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
         >
           <X className="h-4 w-4" />
         </button>

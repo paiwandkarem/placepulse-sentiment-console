@@ -41,7 +41,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
             >
               <Icon className="h-4 w-4 shrink-0" />
               {item.label}
-              <span className="ml-auto rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+              <span className="ml-auto rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
                 Soon
               </span>
             </span>
@@ -140,7 +140,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <HelpCircle className="h-4 w-4 shrink-0" />
             Help and docs
           </a>
-          <p className="px-3 pt-2 text-xs text-gray-400">Customer sentiment intelligence</p>
+          <p className="px-3 pt-2 text-xs text-gray-500">Customer sentiment intelligence</p>
         </div>
       </aside>
 

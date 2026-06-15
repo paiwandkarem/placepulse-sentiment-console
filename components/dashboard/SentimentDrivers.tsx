@@ -164,7 +164,7 @@ function TooltipShareRow({
       <span className={labelCls}>{label}</span>
       <span className="flex items-center gap-2">
         <span className="font-semibold tabular-nums text-gray-900">{current.toFixed(2)}%</span>
-        {showYoy ? <span className="text-[10px] tabular-nums text-gray-400">vs {last.toFixed(2)}%</span> : null}
+        {showYoy ? <span className="text-[10px] tabular-nums text-gray-500">vs {last.toFixed(2)}%</span> : null}
         {showYoy ? <YoyDelta delta={delta} direction={direction} size="xs" compact /> : null}
       </span>
     </div>
@@ -212,7 +212,7 @@ function BreakdownTooltip({ t }: { t: EnrichedTheme }) {
 }
 
 function RankCell({ rank }: { rank: number }) {
-  return <div className="text-sm font-semibold tabular-nums text-gray-400">{rank}</div>;
+  return <div className="text-sm font-semibold tabular-nums text-gray-500">{rank}</div>;
 }
 
 function TabPill({ side, count, active, onClick }: { side: DriverBucket; count: number; active: boolean; onClick: () => void }) {
@@ -262,7 +262,7 @@ function SingleSideRow({ t, rank, side }: { t: EnrichedTheme; rank: number; side
             <YoyDelta delta={delta} direction={direction} />
           </div>
         ) : null}
-        <div className="mt-0.5 text-[11px] tabular-nums text-gray-400">{reviews.toLocaleString("en-AU")} reviews</div>
+        <div className="mt-0.5 text-[11px] tabular-nums text-gray-500">{reviews.toLocaleString("en-AU")} reviews</div>
       </div>
       <BreakdownTooltip t={t} />
     </li>
@@ -296,7 +296,7 @@ function MixedRow({ t, rank }: { t: EnrichedTheme; rank: number }) {
             <YoyDelta delta={t.negativePctDelta} direction="bad_up" />
           </div>
         </div>
-        <div className="mt-0.5 text-[11px] tabular-nums text-gray-400">{t.reviews.toLocaleString("en-AU")} mentions</div>
+        <div className="mt-0.5 text-[11px] tabular-nums text-gray-500">{t.reviews.toLocaleString("en-AU")} mentions</div>
       </div>
       <BreakdownTooltip t={t} />
     </li>

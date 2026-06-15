@@ -42,7 +42,7 @@ function sortByDateNewestFirst(reviews: ReviewEvidence[]): ReviewEvidence[] {
 
 function StarBar({ rating }: { rating: number | undefined }) {
   if (rating == null || Number.isNaN(rating)) {
-    return <span className="text-xs italic text-gray-400">No rating</span>;
+    return <span className="text-xs italic text-gray-500">No rating</span>;
   }
   const full = Math.round(rating);
   return (
@@ -96,7 +96,7 @@ function TabButton({ active, sentiment, count, onClick }: { active: boolean; sen
     >
       <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: meta.colour }} />
       <span>{meta.label}</span>
-      <span className="text-xs text-gray-400">{count.toLocaleString("en-AU")}</span>
+      <span className="text-xs text-gray-500">{count.toLocaleString("en-AU")}</span>
     </button>
   );
 }
@@ -176,7 +176,7 @@ export function SentimentReviewsSheet({
             type="button"
             onClick={onClose}
             aria-label="Close reviews"
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>

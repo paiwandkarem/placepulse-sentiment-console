@@ -236,7 +236,7 @@ export function AssistantChat({
         )}
         {status === "submitted" && (
           <div className="inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" aria-hidden="true" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" aria-hidden="true" />
             Thinking...
           </div>
         )}
@@ -268,7 +268,7 @@ export function AssistantChat({
             rows={1}
             aria-label="Ask the assistant a question"
             placeholder="Ask about a suburb, theme, or place"
-            className="max-h-32 flex-1 resize-none bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            className="max-h-32 flex-1 resize-none bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-500"
           />
           {busy ? (
             <button

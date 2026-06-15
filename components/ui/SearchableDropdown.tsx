@@ -116,7 +116,7 @@ export function SearchableDropdown({
         )}
       >
         <span className="truncate">{value || placeholder}</span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+        <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
       </button>
       {open && coords && (
         <div

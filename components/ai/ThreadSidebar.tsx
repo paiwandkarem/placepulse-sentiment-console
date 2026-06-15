@@ -86,12 +86,12 @@ export function ThreadList({
           <div className="flex flex-col items-center gap-2 px-3 py-10 text-center">
             <MessagesSquare className="h-6 w-6 text-gray-300" aria-hidden="true" />
             <p className="text-xs font-medium text-gray-500">No conversations yet</p>
-            <p className="text-[11px] text-gray-400">Ask a question to start your first chat.</p>
+            <p className="text-[11px] text-gray-500">Ask a question to start your first chat.</p>
           </div>
         ) : (
           groups.map(({ bucket, items }) => (
             <div key={bucket} className="mb-1">
-              <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                 {bucket}
               </p>
               <div className="space-y-0.5">
@@ -123,7 +123,7 @@ export function ThreadList({
                               From dashboard
                             </span>
                           )}
-                          <span className="text-[10px] text-gray-400">{dayjs(thread.updatedAt).fromNow()}</span>
+                          <span className="text-[10px] text-gray-500">{dayjs(thread.updatedAt).fromNow()}</span>
                         </span>
                       </Link>
                       <button

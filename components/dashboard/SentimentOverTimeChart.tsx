@@ -71,7 +71,7 @@ export function SentimentOverTimeChart({ trend }: { trend: SentimentTrendPoint[]
     <Card>
       {trend.length === 0 ? (
         <div className="flex h-72 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 px-6 text-center">
-          <TrendingUp className="h-6 w-6 text-gray-400" aria-hidden="true" />
+          <TrendingUp className="h-6 w-6 text-gray-500" aria-hidden="true" />
           <p className="text-sm font-semibold text-gray-700">No sentiment history yet</p>
           <p className="text-xs text-gray-500">
             We do not have enough months of reviews to chart a trend for this suburb. Try another suburb above.

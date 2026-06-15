@@ -1,5 +1,5 @@
 export type Sentiment = "positive" | "negative" | "neutral" | "mixed";
-export type BriefJobStatus = "queued" | "running" | "completed" | "failed";
+export type BriefJobStatus = "running" | "completed" | "failed";
 export type EvalStatus = "pass" | "fail" | "warn";
 
 // The three concrete sentiment buckets the data is grouped into (no "mixed" in the source).

@@ -217,7 +217,7 @@ function CombinedCloud({ items }: { items: WordItem[] }) {
             </span>
           ))}
         </div>
-        <span className="text-xs text-gray-400">Each word is coloured by the tone of review it shows up most in</span>
+        <span className="text-xs text-gray-500">Each word is coloured by the tone of review it shows up most in</span>
       </div>
       <div className="h-[460px]">
         {placed.length ? (
