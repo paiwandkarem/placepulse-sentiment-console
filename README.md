@@ -33,7 +33,7 @@ Built commit by commit. Every core surface is now built:
 | Places explorer (`/places`) | Built | Queensland business directory, place detail slide-overs with imagery, and a clustered point map over the POI dataset. |
 | Auth | Built | Clerk via the Vercel Marketplace; the app is sign-in gated and AI/brief data is scoped per user. |
 
-The build plan lives in `docs/ai-cloud-plan.md`, the architecture narrative in `docs/architecture-overview.md`, and the commit-level reasoning in `docs/architecture-decisions.md`.
+Built commit by commit, with the reasoning behind each non-trivial decision recorded as the project progressed.
 
 ## Problem
 
@@ -129,7 +129,7 @@ The app is deployed on Vercel and uses Vercel-native patterns:
 * **Clerk via the Vercel Marketplace** for authentication, with `proxy.ts` (the Next 16 middleware convention, Node runtime) gating the app and the AI write routes
 * `after()` to run the slow brief generation off the response path so the render never blocks the request
 * per-user rate limiting on the two money-spending endpoints (the assistant and brief generation), so a signed-in user cannot spam expensive model calls
-* observability through Vercel Analytics and Speed Insights for Core Web Vitals, the AI Gateway dashboard for model traffic, latency and cost, and the `eval_runs` table for grounding history
+* observability through Vercel Analytics and Speed Insights for Core Web Vitals, the AI Gateway dashboard for model traffic, latency and cost, the `eval_runs` table for grounding history, and OpenTelemetry tracing of the AI through Langfuse (`instrumentation.ts`), which captures every assistant turn and brief down to each individual tool call, grouped by conversation thread. The tracing is vendor-neutral: the app emits standard OpenTelemetry and Langfuse is only the OTLP destination, so it is off when no keys are set and swappable for any OTLP backend
 
 The Queensland boundary GeoJSON is a static asset served from the CDN (pointed at by an environment variable), not the app bundle.
 
@@ -337,6 +337,14 @@ NEXT_PUBLIC_APP_ENV=development
 NEXT_PUBLIC_ENABLE_ARCHITECTURE_PANEL=true
 EVALS_REQUIRE_PASS=false
 SUBURB_BOUNDARY_GEOJSON_URL=
+```
+
+Optional AI observability (Langfuse). When both keys are set, every assistant turn, brief draft and thread-title call is traced to Langfuse over OpenTelemetry, grouped by conversation thread, down to each tool call. Leave blank to disable tracing with no behaviour change.
+
+```env
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 `NEXT_PUBLIC_*` values are inlined at build time, so set them before building and restart the dev server after changing them. On Vercel the AI Gateway authenticates with the project's OIDC token, so `AI_GATEWAY_API_KEY` is only needed locally.

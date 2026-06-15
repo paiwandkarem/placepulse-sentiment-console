@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { createBriefJob, listBriefJobs } from "@/lib/briefs/repository";
 import { runBriefJob, runCategoryBriefJob, runComparisonBriefJob, runMomentumBriefJob } from "@/lib/briefs/service";
 import { BRIEF_TYPES } from "@/lib/briefs/schema";
@@ -10,8 +10,11 @@ import { rateLimit } from "@/lib/ratelimit";
 // Brief generation is slow (a schema-constrained model draft plus a PDF render), so it runs after
 // the response via after(): the POST records the job and returns its id immediately, and the work
 // completes in the background, flipping the job row to completed or failed. The briefs page polls
-// the list (GET) for status. This is the durable shape the architecture calls for, rather than
-// holding the request open until the PDF is ready.
+// the list (GET) for status. This is the non-blocking shape: the request is never held open for the
+// render. It is durable across response cancellation but NOT crash-safe (an instance reclaimed mid
+// render leaves the job stuck in 'running' with no retry). The production answer for crash-safe,
+// retryable, resumable execution is Vercel Workflow; for this scope after() is the deliberate
+// trade-off, and the job row keeps the work pollable and recoverable in the meantime.
 export const maxDuration = 120;
 
 // The brief request: a type, one to three suburbs (overview uses the first), and an optional
@@ -45,6 +48,13 @@ export async function POST(request: Request): Promise<Response> {
   const { type, areaNames, category } = parsed.data;
   const id = nanoid();
 
+  // Attach the requester so the brief's AI trace is attributable to a user (and their email when
+  // Clerk exposes it) in Langfuse, the same way assistant turns carry their user. Looked up once
+  // after the rate-limit check so a throttled request never makes the call.
+  const user = await currentUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
+  const actor = email ? { userId, email } : { userId };
+
   if (type === "comparison") {
     const suburbs = [...new Set(areaNames)];
     if (suburbs.length < 2) {
@@ -52,7 +62,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     const title = `${suburbs.join(" vs ")}${category ? `: ${category}` : ""} comparison`;
     await createBriefJob({ id, userId, type, title, filters: { areaNames: suburbs, category: category ?? null } });
-    after(() => runComparisonBriefJob(id, { areaNames: suburbs, category }));
+    after(() => runComparisonBriefJob(id, { areaNames: suburbs, category }, actor));
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
@@ -62,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     const title = `${category}: Queensland category deep-dive`;
     await createBriefJob({ id, userId, type, title, filters: { category } });
-    after(() => runCategoryBriefJob(id, { category }));
+    after(() => runCategoryBriefJob(id, { category }, actor));
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
@@ -75,13 +85,13 @@ export async function POST(request: Request): Promise<Response> {
   if (type === "momentum") {
     const title = `${areaName}${category ? `: ${category}` : ""} momentum`;
     await createBriefJob({ id, userId, type, title, filters: { areaName, category: category ?? null } });
-    after(() => runMomentumBriefJob(id, { areaName, category }));
+    after(() => runMomentumBriefJob(id, { areaName, category }, actor));
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
   const title = category ? `${areaName}: ${category} sentiment brief` : `${areaName} sentiment brief`;
   await createBriefJob({ id, userId, type, title, filters: { areaName, category: category ?? null } });
-  after(() => runBriefJob(id, { areaName, category }));
+  after(() => runBriefJob(id, { areaName, category }, actor));
 
   return Response.json({ id, status: "running", title }, { status: 202 });
 }

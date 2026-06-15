@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
 import { model, MAX_RETRIES } from "@/lib/ai/model";
+import { aiTelemetry } from "@/lib/ai/telemetry";
 import { rateLimit } from "@/lib/ratelimit";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
 import { assistantTools } from "@/lib/assistant/tools";
@@ -83,6 +84,13 @@ export async function POST(request: Request): Promise<Response> {
     tools: assistantTools,
     stopWhen: stepCountIs(8),
     maxRetries: MAX_RETRIES,
+    // Trace this turn (and each tool call under it) to Langfuse, grouped by thread via sessionId, so
+    // we can audit how any answer was produced down to the lookups it ran. Off when no keys are set.
+    experimental_telemetry: aiTelemetry("assistant", {
+      sessionId,
+      userId,
+      surface: body.surface ?? "assistant",
+    }),
   });
 
   return result.toUIMessageStreamResponse({
