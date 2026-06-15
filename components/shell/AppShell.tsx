@@ -69,17 +69,12 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+export function AppShell({ children, initialCollapsed = false }: { children: ReactNode; initialCollapsed?: boolean }) {
+  // Seeded from the server-read cookie, so the first render already matches the user's preference and
+  // the content margin never shifts after hydration (no CLS for returning collapsed-sidebar users).
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-
-  // Read the persisted preference after mount (not in a lazy initialiser) so server and client
-  // first render agree, which avoids a hydration mismatch on the sidebar.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCollapsed(localStorage.getItem("ppSidebarCollapsed") === "1");
-  }, []);
 
   // Escape closes the mobile menu. (Tapping a nav item closes it via NavLinks' onNavigate, and the
   // backdrop closes it on click, so there is no need to react to route changes in an effect.)
@@ -95,7 +90,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   function toggle() {
     setCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem("ppSidebarCollapsed", next ? "1" : "0");
+      // Persist in a cookie (not localStorage) so the server can read it and render the correct
+      // sidebar width on first paint, avoiding a post-hydration content-margin shift (CLS).
+      document.cookie = `ppSidebarCollapsed=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
       return next;
     });
   }

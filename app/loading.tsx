@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <>
-      <div className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+      {/* Match the real filter bar's sticky offset (page.tsx): below the mobile top bar, flush on md+. */}
+      <div className="sticky top-14 z-30 border-b border-gray-200 bg-white md:top-0">
         <div className="px-4 py-3 md:px-8">
           <Skeleton className="h-12 w-full" />
         </div>
@@ -24,9 +25,10 @@ export default function Loading() {
           ))}
         </div>
 
-        {/* Over-time chart (the chart card scales: shorter on phones, full height on desktop) */}
+        {/* Over-time chart: match the card's real height (p-5 padding + the chart's responsive height,
+            h-72/sm:h-80/md:h-[340px]) so the swap-in does not nudge the page. */}
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-[340px] w-full md:h-[400px]" />
+        <Skeleton className="mb-8 h-[328px] w-full sm:h-[360px] md:h-[380px]" />
 
         {/* Category breakdown */}
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />

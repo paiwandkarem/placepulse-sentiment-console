@@ -1,8 +1,10 @@
-"use client";
-
 import { ArrowDown, ArrowUp, Calendar } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/ui/sentiment";
+
+// This is a Server Component: it renders only static markup (the headline numbers, the YoY pill, the
+// hover label), so the above-the-fold LCP content paints from server HTML with no client JS. The one
+// interactive-looking part, the hover label, uses the CSS-only Tooltip, so nothing here hydrates.
 
 type Metric = "number" | "percent";
 
