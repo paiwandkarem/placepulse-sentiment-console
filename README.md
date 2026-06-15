@@ -179,9 +179,15 @@ The assistant streams token by token over a Route Handler using the Vercel AI SD
 
 ## Caching strategy
 
-* **Database indexes** support the common access patterns (suburb plus category plus date, category plus date, suburb plus date, granularity plus date).
-* **API caching**: read-heavy sentiment routes return `s-maxage` with `stale-while-revalidate`, suitable because the data is analytical and does not need second-by-second freshness.
-* **Revalidation**: the import flow can be paired with on-demand revalidation so fresh data becomes visible after an import.
+Three layers, each with a clear purpose:
+
+* **Page (ISR)**: the dashboard is a Server Component with `export const revalidate = 300`, so the shared shell is rebuilt at most every five minutes.
+* **Data layer (`unstable_cache`)**: the shared, slow-changing sentiment reads (the record, trend, themes, category breakdown and comparison) are cached per slice and tagged in `lib/services/sentimentService.ts`, so repeat selections skip Neon entirely; the filter catalogue is cached the same way with a one-hour TTL.
+* **API (edge CDN)**: read-heavy sentiment routes return `s-maxage=300, stale-while-revalidate=3600` (`lib/cache/cacheKeys.ts`), so most loads are served from the edge near the user rather than from a Function or Neon.
+* **Revalidation**: a token-guarded `/api/revalidate` busts the catalogue, record, trend and comparison tags on import, so new data appears immediately rather than waiting out the TTLs.
+* **Database indexes** support the common access patterns: a grain index for the hot single-slice reads, per-query composites, and a loose-index-scan (skip-scan) catalogue that keeps the filter lists cheap over millions of rows.
+
+The data updates monthly, so this trades a little freshness for instant loads and a flat database bill under load — a deliberate choice, not an accident.
 
 ## Core Web Vitals decisions
 
