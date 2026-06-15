@@ -41,9 +41,18 @@ export function AssistantWorkspace({
   const threads = useMemo(() => {
     const serverIds = new Set(initialThreads.map((thread) => thread.id));
     const extras = optimistic.filter((thread) => !serverIds.has(thread.id));
-    return [...extras, ...initialThreads].map((thread) =>
-      titleOverrides[thread.id] ? { ...thread, title: titleOverrides[thread.id] } : thread,
-    );
+    // Drop any thread with no id and de-duplicate by id, so the rail never renders two items with the
+    // same (or empty) React key even if a stale or empty session id slipped into the data.
+    const seen = new Set<string>();
+    return [...extras, ...initialThreads]
+      .filter((thread) => {
+        if (!thread.id || seen.has(thread.id)) return false;
+        seen.add(thread.id);
+        return true;
+      })
+      .map((thread) =>
+        titleOverrides[thread.id] ? { ...thread, title: titleOverrides[thread.id] } : thread,
+      );
   }, [initialThreads, optimistic, titleOverrides]);
 
   function handleFirstMessage(text: string) {
