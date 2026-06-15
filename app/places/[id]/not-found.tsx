@@ -6,7 +6,7 @@ import { MapPin } from "lucide-react";
 export default function PlaceNotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
         <MapPin className="h-6 w-6" aria-hidden="true" />
       </span>
       <h1 className="mt-4 text-xl font-bold text-gray-900">Place not found</h1>

@@ -1,6 +1,9 @@
+import { after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { generateText } from "ai";
 import { withModelFallback, MAX_RETRIES } from "@/lib/ai/model";
+import { aiTelemetry } from "@/lib/ai/telemetry";
+import { langfuseSpanProcessor } from "@/instrumentation";
 import { rateLimit } from "@/lib/ratelimit";
 import { setThreadTitle } from "@/lib/assistant/sessions";
 
@@ -43,8 +46,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           "Write a title of 3 to 6 words for this conversation about Queensland customer-review " +
           "sentiment. Title Case, no quotes, no trailing punctuation, no emoji. Reply with only the title.\n\n" +
           `Question: ${question}\n\nAnswer: ${answer}`,
+        experimental_telemetry: aiTelemetry("thread-title", { sessionId: id, userId }),
       }),
     );
+    // Flush the title trace to Langfuse off the response path. No-op when tracing is not configured.
+    after(() => langfuseSpanProcessor?.forceFlush());
     const title = result.text
       .trim()
       .replace(/^["'\s]+|["'\s.]+$/g, "")

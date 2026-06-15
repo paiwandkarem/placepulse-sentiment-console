@@ -30,7 +30,7 @@ export function PlaceImage({
         className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200", className)}
         aria-hidden="true"
       >
-        <ImageOff className="h-6 w-6 text-gray-400" />
+        <ImageOff className="h-6 w-6 text-gray-500" />
       </div>
     );
   }

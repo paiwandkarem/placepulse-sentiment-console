@@ -28,7 +28,9 @@ export default async function AssistantPage({
   // A stable id for the chat: the open thread if there is one, otherwise a fresh id for a new
   // conversation. Generated here (server-side) rather than in client state so SSR and hydration agree
   // and the new thread can be saved and titled under a known id.
-  const chatId = threadId ?? crypto.randomUUID();
+  // Use `||`, not `??`: an empty `?thread=` (e.g. a stale link) must fall back to a fresh id rather
+  // than become an empty chat id that then propagates into thread keys and saved sessions.
+  const chatId = threadId || crypto.randomUUID();
 
   return <AssistantWorkspace initialThreads={threads} chatId={chatId} activeMessages={active?.messages} />;
 }

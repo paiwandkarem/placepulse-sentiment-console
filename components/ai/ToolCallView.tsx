@@ -60,13 +60,13 @@ export function ToolCallView({ part }: { part: MessagePart }) {
         {failed ? (
           <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-rose-500" />
         ) : running ? (
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-400" />
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-500" />
         ) : (
           <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
         )}
         <span className="font-medium text-gray-700">{label}</span>
         <ChevronRight
-          className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-90"
+          className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform group-open:rotate-90"
           aria-hidden="true"
         />
       </summary>

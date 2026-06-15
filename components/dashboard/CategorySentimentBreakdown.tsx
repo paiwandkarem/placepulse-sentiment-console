@@ -27,7 +27,7 @@ const MIN_DELTA = 0.5;
 function YoyDelta({ delta }: { delta: number }) {
   const abs = Math.abs(delta);
   if (abs < MIN_DELTA) {
-    return <span className="text-[11px] tabular-nums text-gray-400">flat</span>;
+    return <span className="text-[11px] tabular-nums text-gray-500">flat</span>;
   }
   const up = delta > 0;
   const Icon = up ? ArrowUp : ArrowDown;
@@ -102,7 +102,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
+      <div className="flex min-h-[392px] items-center justify-center rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
         No category breakdown for {areaLabel}.
       </div>
     );
@@ -113,7 +113,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
   return (
     <div className={cn("rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-opacity", isPending && "opacity-60")}>
       <div className="mb-3 flex items-center justify-end gap-1.5">
-        <span className="mr-1 text-xs font-medium text-gray-400">Sort by</span>
+        <span className="mr-1 text-xs font-medium text-gray-500">Sort by</span>
         <SortButton label="Sentiment" active={sortKey === "sentiment"} dir={sortDir} onClick={() => toggleSort("sentiment")} />
         <SortButton label="Reviews" active={sortKey === "reviews"} dir={sortDir} onClick={() => toggleSort("reviews")} />
         <SortButton label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
@@ -123,6 +123,10 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
           card instead of letting them push the whole page sideways. */}
       <div className="overflow-x-auto">
         <div className="min-w-[320px] sm:min-w-[360px]">
+      {/* Fixed-height, vertically scrolled row list so the card has a constant footprint no matter how
+          many categories a suburb has: the page never reflows on load or when switching suburbs (CLS),
+          and many categories scroll within the card instead of growing it. */}
+      <div className="h-72 overflow-y-auto">
       <ul className="divide-y divide-gray-100">
         {sorted.map((c) => {
           const left = position(c.overallSatisfaction100);
@@ -162,7 +166,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
 
                 <span className="text-right text-sm font-bold tabular-nums text-gray-900">{c.overallSatisfaction100.toFixed(1)}</span>
 
-                <span className="text-right text-[11px] tabular-nums text-gray-400">{c.totalReviews.toLocaleString("en-AU")} reviews</span>
+                <span className="text-right text-[11px] tabular-nums text-gray-500">{c.totalReviews.toLocaleString("en-AU")} reviews</span>
 
                 <span className="text-right">
                   {c.overallSatisfaction100LastYear != null ? (
@@ -174,10 +178,11 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
           );
         })}
       </ul>
+      </div>
 
       <div className="mt-3 grid items-center gap-3 border-t border-gray-100 pt-2" style={{ gridTemplateColumns: COLS }}>
-        <span className="text-[11px] text-gray-400">Sentiment score</span>
-        <span className="flex justify-between text-[11px] tabular-nums text-gray-400">
+        <span className="text-[11px] text-gray-500">Sentiment score</span>
+        <span className="flex justify-between text-[11px] tabular-nums text-gray-500">
           <span>{lo}</span>
           <span>{hi}</span>
         </span>

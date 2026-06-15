@@ -50,5 +50,5 @@ next-env.d.ts
 # (NEXT_PUBLIC_SUBURB_GEOJSON_URL points at the Blob copy)
 public/qld-suburbs.geojson
 
-# internal working note, not part of the shipped repo
-docs/poi-copilot-teardown.md
+# internal working notes and prep material, kept locally, not part of the shipped repo
+/docs/

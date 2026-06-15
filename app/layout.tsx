@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -21,16 +22,19 @@ export const metadata: Metadata = {
     "Customer sentiment intelligence for Queensland suburbs: themes, drivers and review evidence.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the sidebar-collapsed preference from a cookie on the server, so the shell renders at the
+  // correct width on the first paint instead of defaulting to expanded and shifting after hydration.
+  const sidebarCollapsed = (await cookies()).get("ppSidebarCollapsed")?.value === "1";
   return (
     <ClerkProvider>
       <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
         <body className="min-h-full bg-gray-50 font-sans text-gray-900">
-          <AppShell>{children}</AppShell>
+          <AppShell initialCollapsed={sidebarCollapsed}>{children}</AppShell>
           {/* Vercel Analytics (page/usage) and Speed Insights (Core Web Vitals). Both inject a
               tiny client script and report from the deployed app; they no-op locally. */}
           <Analytics />

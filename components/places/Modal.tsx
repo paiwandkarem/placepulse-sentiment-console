@@ -64,13 +64,13 @@ export function Modal({ children, closeHref }: { children: React.ReactNode; clos
       )}
     >
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Place details</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Place details</span>
         <button
           ref={closeRef}
           type="button"
           onClick={close}
           aria-label="Close place"
-          className="rounded-lg p-2.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          className="rounded-lg p-2.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>

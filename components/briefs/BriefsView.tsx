@@ -126,12 +126,28 @@ export function BriefsView({
     setBriefs(data.briefs);
   }, []);
 
-  // Poll only while a brief is still being generated, then stop.
+  const [pollExhausted, setPollExhausted] = useState(false);
+  const hasRunning = briefs.some((brief) => brief.status === "running");
+
+  // Poll while a brief is generating, but cap it. Generation runs off the response via after(), which
+  // is not crash-safe: an instance reclaimed mid render can leave a job stuck in 'running', so we stop
+  // after a ceiling instead of polling forever, and skip ticks while the tab is hidden so a
+  // backgrounded page is not hitting the API.
   useEffect(() => {
-    if (!briefs.some((brief) => brief.status === "running")) return;
-    const timer = setInterval(refresh, 2500);
+    if (!hasRunning || pollExhausted) return;
+    let attempts = 0;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      attempts += 1;
+      if (attempts > 80) {
+        // ~3.5 minutes at 2.5s: give up auto-polling and let the user re-check by hand.
+        setPollExhausted(true);
+        return;
+      }
+      void refresh();
+    }, 2500);
     return () => clearInterval(timer);
-  }, [briefs, refresh]);
+  }, [hasRunning, pollExhausted, refresh]);
 
   // In category mode, fetch the category's per-suburb satisfaction so the map can shade it. Cleared
   // for every other type or when no category is chosen.
@@ -184,6 +200,8 @@ export function BriefsView({
     const areaNamesToSend = type === "category" ? [] : type === "comparison" ? picked.slice(0, 3) : [picked[0]];
     setSubmitting(true);
     setError(null);
+    // A new job re-arms polling from a clean ceiling, even if a previous one stalled.
+    setPollExhausted(false);
     try {
       const response = await fetch("/api/briefs", {
         method: "POST",
@@ -191,7 +209,9 @@ export function BriefsView({
         body: JSON.stringify({ type, areaNames: areaNamesToSend, category: realCategory }),
       });
       if (!response.ok) {
-        setError("Could not start the brief. Try again.");
+        // Surface the server's own message for a rate limit (the hourly cap); otherwise a generic line.
+        const serverMessage = await response.text().catch(() => "");
+        setError(response.status === 429 && serverMessage ? serverMessage : "Could not start the brief. Try again.");
         return;
       }
       track("brief_generated", { type, suburbs: areaNamesToSend.join(", "), category });
@@ -283,7 +303,7 @@ export function BriefsView({
                   ))}
                 </div>
               ) : (
-                <p className="mb-2 text-xs text-gray-400">Click a suburb on the map, or search below.</p>
+                <p className="mb-2 text-xs text-gray-500">Click a suburb on the map, or search below.</p>
               )}
               <SearchableDropdown
                 value=""
@@ -320,7 +340,7 @@ export function BriefsView({
             )}
             Generate brief
           </button>
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
         </form>
       </div>
 
@@ -331,7 +351,16 @@ export function BriefsView({
         ) : (
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {briefs.map((brief) => (
-              <BriefCard key={brief.id} brief={brief} onDelete={remove} />
+              <BriefCard
+                key={brief.id}
+                brief={brief}
+                onDelete={remove}
+                stalled={pollExhausted}
+                onRecheck={() => {
+                  setPollExhausted(false);
+                  void refresh();
+                }}
+              />
             ))}
           </ul>
         )}
@@ -340,7 +369,17 @@ export function BriefsView({
   );
 }
 
-function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string) => void }) {
+function BriefCard({
+  brief,
+  onDelete,
+  stalled,
+  onRecheck,
+}: {
+  brief: BriefJob;
+  onDelete: (id: string) => void;
+  stalled: boolean;
+  onRecheck: () => void;
+}) {
   const content = parseContent(brief.content);
   const style = TYPE_STYLE[brief.type];
   const Icon = style.icon;
@@ -363,12 +402,27 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
       </div>
 
       {brief.status === "running" && (
-        <div className="flex min-h-[3rem] items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Drafting and rendering...
+        <div className="flex min-h-[3rem] flex-col justify-center gap-2 text-sm text-gray-500">
+          {stalled ? (
+            <>
+              <span>Still generating, or it may have stalled.</span>
+              <button
+                type="button"
+                onClick={onRecheck}
+                className="self-start rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Check status
+              </button>
+            </>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Drafting and rendering...
+            </span>
+          )}
         </div>
       )}
-      {brief.status === "failed" && <p className="text-sm text-rose-600">{brief.error ?? "Generation failed."}</p>}
+      {brief.status === "failed" && <p className="text-sm text-rose-700">{brief.error ?? "Generation failed."}</p>}
       {brief.status === "completed" && content && (
         <div className="space-y-1.5">
           <p className="text-sm font-semibold text-gray-900">{content.headline}</p>
@@ -377,7 +431,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
       )}
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
-        <p className="text-xs text-gray-400">{new Date(brief.createdAt).toLocaleDateString()}</p>
+        <p className="text-xs text-gray-500">{new Date(brief.createdAt).toLocaleDateString()}</p>
         <div className="flex items-center gap-1.5">
           {brief.status === "completed" && brief.pdfBlobUrl && (
             <a
@@ -397,7 +451,7 @@ function BriefCard({ brief, onDelete }: { brief: BriefJob; onDelete: (id: string
               onClick={() => onDelete(brief.id)}
               aria-label="Delete brief"
               title="Delete brief"
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-rose-50 hover:text-rose-600"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>

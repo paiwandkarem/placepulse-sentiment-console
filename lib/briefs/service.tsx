@@ -4,6 +4,7 @@ import { generateObject } from "ai";
 import { put } from "@vercel/blob";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { withModelFallback, MAX_RETRIES } from "@/lib/ai/model";
+import { aiTelemetry } from "@/lib/ai/telemetry";
 import { aggTypeForCategory } from "@/lib/filters";
 import { getCategoryRanking, getSentimentDashboardContext } from "@/lib/services/sentimentService";
 import { placesInSuburb } from "@/lib/repositories/poiRepository";
@@ -12,6 +13,7 @@ import {
   comparisonContentSchema,
   momentumContentSchema,
   overviewContentSchema,
+  type OverviewContent,
   type BriefChartData,
   type BriefKeywords,
   type BriefMeta,
@@ -38,6 +40,12 @@ import { completeBriefJob, failBriefJob } from "./repository";
 // because this runs after the response has been sent.
 
 type Ctx = NonNullable<Awaited<ReturnType<typeof getSentimentDashboardContext>>>;
+
+// Who a brief is generated for. Carried through so each brief's AI trace is attributable to a user
+// in Langfuse, with their email when Clerk exposes it and the id as the always-present fallback.
+export type BriefActor = { userId: string; email?: string };
+const actorMeta = (actor: BriefActor): Record<string, string> =>
+  actor.email ? { userId: actor.userId, email: actor.email } : { userId: actor.userId };
 
 const BRIEF_SYSTEM_PROMPT = `You are a sentiment analyst writing an executive intelligence brief about one Queensland suburb, for a council, tourism or precinct team.
 
@@ -187,6 +195,7 @@ function buildDigest(ctx: Ctx): string {
 export async function runBriefJob(
   jobId: string,
   filters: { areaName: string; category?: string },
+  actor: BriefActor,
 ): Promise<void> {
   try {
     const ctx = await getSentimentDashboardContext({
@@ -211,6 +220,7 @@ export async function runBriefJob(
           schema: overviewContentSchema,
           system: BRIEF_SYSTEM_PROMPT,
           prompt: `Write the brief from this data.\n\n${buildDigest(ctx)}`,
+          experimental_telemetry: aiTelemetry("brief-overview", { jobId, ...actorMeta(actor) }),
         }),
       ),
       fetchSuburbMapDataUri(ctx.record.areaName),
@@ -243,6 +253,33 @@ export async function runBriefJob(
       error: error instanceof Error ? error.message : "Brief generation failed.",
     });
   }
+}
+
+// Draft-only overview brief for the eval suite: it builds the same digest the live job feeds the model
+// and runs the same schema-constrained generateObject, but skips the PDF, Blob and DB writes. Returns
+// the drafted content plus the digest (the only permitted source of facts) so the eval can grade the
+// brief's faithfulness. Kept separate from runBriefJob so the production path is untouched.
+export async function draftOverviewForEval(
+  areaName: string,
+  category?: string,
+): Promise<{ content: OverviewContent; digest: string } | null> {
+  const ctx = await getSentimentDashboardContext({
+    areaName,
+    category,
+    aggType: aggTypeForCategory(category),
+  });
+  if (!ctx) return null;
+  const digest = buildDigest(ctx);
+  const { object } = await withModelFallback("brief", (m) =>
+    generateObject({
+      model: m,
+      maxRetries: MAX_RETRIES,
+      schema: overviewContentSchema,
+      system: BRIEF_SYSTEM_PROMPT,
+      prompt: `Write the brief from this data.\n\n${digest}`,
+    }),
+  );
+  return { content: object, digest };
 }
 
 // ---- Comparison brief (B4): two or three suburbs, head to head ----
@@ -296,6 +333,7 @@ function buildComparisonDigest(suburbs: ComparisonSuburb[], category: string): s
 export async function runComparisonBriefJob(
   jobId: string,
   input: { areaNames: string[]; category?: string },
+  actor: BriefActor,
 ): Promise<void> {
   try {
     const contexts = await Promise.all(
@@ -329,6 +367,7 @@ export async function runComparisonBriefJob(
         schema: comparisonContentSchema,
         system: COMPARISON_SYSTEM_PROMPT,
         prompt: `Write the comparison from this data.\n\n${buildComparisonDigest(suburbs, categoryLabel)}`,
+        experimental_telemetry: aiTelemetry("brief-comparison", { jobId, ...actorMeta(actor) }),
       }),
     );
 
@@ -385,7 +424,7 @@ function buildCategoryDigest(meta: CategoryMeta): string {
   ].join("\n");
 }
 
-export async function runCategoryBriefJob(jobId: string, input: { category: string }): Promise<void> {
+export async function runCategoryBriefJob(jobId: string, input: { category: string }, actor: BriefActor): Promise<void> {
   try {
     const { date, suburbs } = await getCategoryRanking(input.category);
     if (suburbs.length < 3) {
@@ -400,6 +439,7 @@ export async function runCategoryBriefJob(jobId: string, input: { category: stri
         schema: categoryContentSchema,
         system: CATEGORY_SYSTEM_PROMPT,
         prompt: `Write the category deep-dive from this data.\n\n${buildCategoryDigest(meta)}`,
+        experimental_telemetry: aiTelemetry("brief-category", { jobId, ...actorMeta(actor) }),
       }),
     );
 
@@ -480,7 +520,7 @@ function buildMomentumDigest(meta: MomentumMeta): string {
   ].join("\n");
 }
 
-export async function runMomentumBriefJob(jobId: string, input: { areaName: string; category?: string }): Promise<void> {
+export async function runMomentumBriefJob(jobId: string, input: { areaName: string; category?: string }, actor: BriefActor): Promise<void> {
   try {
     const ctx = await getSentimentDashboardContext({
       areaName: input.areaName,
@@ -499,6 +539,7 @@ export async function runMomentumBriefJob(jobId: string, input: { areaName: stri
         schema: momentumContentSchema,
         system: MOMENTUM_SYSTEM_PROMPT,
         prompt: `Write the momentum brief from this data.\n\n${buildMomentumDigest(meta)}`,
+        experimental_telemetry: aiTelemetry("brief-momentum", { jobId, ...actorMeta(actor) }),
       }),
     );
 

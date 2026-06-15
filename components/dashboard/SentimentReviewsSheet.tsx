@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import dayjs from "dayjs";
 import type { ReviewEvidence, ReviewSentiment, TopReviewGroups } from "@/lib/types";
@@ -42,7 +42,7 @@ function sortByDateNewestFirst(reviews: ReviewEvidence[]): ReviewEvidence[] {
 
 function StarBar({ rating }: { rating: number | undefined }) {
   if (rating == null || Number.isNaN(rating)) {
-    return <span className="text-xs italic text-gray-400">No rating</span>;
+    return <span className="text-xs italic text-gray-500">No rating</span>;
   }
   const full = Math.round(rating);
   return (
@@ -96,7 +96,7 @@ function TabButton({ active, sentiment, count, onClick }: { active: boolean; sen
     >
       <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: meta.colour }} />
       <span>{meta.label}</span>
-      <span className="text-xs text-gray-400">{count.toLocaleString("en-AU")}</span>
+      <span className="text-xs text-gray-500">{count.toLocaleString("en-AU")}</span>
     </button>
   );
 }
@@ -136,6 +136,38 @@ export function SentimentReviewsSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // It is aria-modal, so honour the contract: move focus into the sheet on open, keep Tab within it,
+  // and restore focus to whatever opened it on close.
+  const sheetRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const sheet = sheetRef.current;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !sheet) return;
+      const focusables = sheet.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    sheet?.addEventListener("keydown", onKeyDown);
+    return () => {
+      sheet?.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
+
   const buckets = useMemo(
     () => ({
       positive: sortByDateNewestFirst(reviews.positive),
@@ -157,6 +189,7 @@ export function SentimentReviewsSheet({
         }`}
       />
       <aside
+        ref={sheetRef}
         role="dialog"
         aria-label="Example reviews"
         aria-modal="true"
@@ -173,10 +206,11 @@ export function SentimentReviewsSheet({
             </p>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="Close reviews"
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>

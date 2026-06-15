@@ -26,6 +26,10 @@ const SUGGESTIONS = [
   "Compare Fortitude Valley and South Brisbane",
 ];
 
+// Best-effort detection of a rate-limit (429) error, so we can tell the user to wait and retry rather
+// than show a generic failure. The exact error text depends on the transport, so we match loosely.
+const isRateLimit = (error: Error): boolean => /too many|rate limit|slow down|429/i.test(error.message);
+
 export function AssistantChat({
   className,
   id,
@@ -90,7 +94,7 @@ export function AssistantChat({
   // that never equals undefined. That recreation silently discards the streaming state, so nothing
   // renders live. A resumed thread passes a real id (stable, so no recreation); a fresh chat or the
   // dock passes none.
-  const { messages, sendMessage, status, error, stop } = useChat({
+  const { messages, sendMessage, status, error, stop, regenerate, clearError } = useChat({
     ...(effectiveId ? { id: effectiveId } : {}),
     messages: effectiveInitialMessages,
     transport,
@@ -106,9 +110,13 @@ export function AssistantChat({
   const titleFiredRef = useRef(false);
   const busy = status === "submitted" || status === "streaming";
 
-  // Keep the latest content in view as it streams in.
+  // Keep the latest content in view as it streams in, but only when the user is already near the
+  // bottom, so scrolling up to read earlier output is not yanked back down on every streamed token.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (nearBottom) el.scrollTo({ top: el.scrollHeight });
   }, [messages, status]);
 
   // Mirror the conversation into sessionStorage once each turn settles, so reopening the dock (or
@@ -126,7 +134,7 @@ export function AssistantChat({
   // Report the message count up to the host (the dock uses it to gate "open in assistant").
   useEffect(() => {
     onMessagesChange?.(messages.length);
-  }, [messages, onMessagesChange]);
+  }, [messages.length, onMessagesChange]);
 
   // Once the first turn of a newly-started chat settles, hand the question and answer to the host so
   // it can generate a readable title. Fires at most once.
@@ -165,6 +173,7 @@ export function AssistantChat({
   function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+    clearError?.();
     track("assistant_message");
     // First message of an empty chat: tell the host so it can show the new thread immediately.
     if (messages.length === 0) {
@@ -236,14 +245,28 @@ export function AssistantChat({
         )}
         {status === "submitted" && (
           <div className="inline-flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" aria-hidden="true" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" aria-hidden="true" />
             Thinking...
           </div>
         )}
         {error && (
-          <div className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-600">
+          <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
             <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Something went wrong. Please try again.
+            <span className="flex-1">
+              {isRateLimit(error)
+                ? "You're sending messages too quickly. Wait a moment, then retry."
+                : "Something went wrong generating a response."}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                clearError?.();
+                regenerate();
+              }}
+              className="shrink-0 rounded-md bg-rose-100 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-200"
+            >
+              Retry
+            </button>
           </div>
         )}
       </div>
@@ -268,7 +291,7 @@ export function AssistantChat({
             rows={1}
             aria-label="Ask the assistant a question"
             placeholder="Ask about a suburb, theme, or place"
-            className="max-h-32 flex-1 resize-none bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            className="max-h-32 flex-1 resize-none bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-500"
           />
           {busy ? (
             <button

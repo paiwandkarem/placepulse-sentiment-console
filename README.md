@@ -28,12 +28,13 @@ Built commit by commit. Every core surface is now built:
 | Dashboard (`/`) | Built | KPIs, three-year trend, category breakdown, theme drivers, word cloud, distributions, suburb boundary map. |
 | Assistant (docked copilot) | Built | Streaming grounded chat that can drive the dashboard filters by chat; generative tool cards over an audit timeline; conversations auto-saved as "From dashboard" threads. |
 | Assistant (full-screen page, `/assistant`) | Built | Same engine with per-user, resumable conversation threads. |
-| Briefs (`/briefs`) | Built | Durable AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum); suburbs chosen on a map. |
+| Briefs (`/briefs`) | Built | AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum), generated off the response path via `after()`; suburbs chosen on a map. |
 | Evals | Built | Grounding suite across every tool tier plus refusal and dashboard-action cases, with an independent LLM faithfulness judge; stored in `eval_runs`, runnable via `npm run evals` (or `ci:full`). |
 | Places explorer (`/places`) | Built | Queensland business directory, place detail slide-overs with imagery, and a clustered point map over the POI dataset. |
 | Auth | Built | Clerk via the Vercel Marketplace; the app is sign-in gated and AI/brief data is scoped per user. |
+| Observability | Built | Vercel Analytics + Speed Insights (Core Web Vitals), the AI Gateway (model cost/latency), `eval_runs` (grounding history), and OpenTelemetry tracing to Langfuse down to each tool call, grouped by conversation thread. |
 
-The build plan lives in `docs/ai-cloud-plan.md`, the architecture narrative in `docs/architecture-overview.md`, and the commit-level reasoning in `docs/architecture-decisions.md`.
+Built commit by commit, with the reasoning behind each non-trivial decision recorded as the project progressed.
 
 ## Problem
 
@@ -129,7 +130,7 @@ The app is deployed on Vercel and uses Vercel-native patterns:
 * **Clerk via the Vercel Marketplace** for authentication, with `proxy.ts` (the Next 16 middleware convention, Node runtime) gating the app and the AI write routes
 * `after()` to run the slow brief generation off the response path so the render never blocks the request
 * per-user rate limiting on the two money-spending endpoints (the assistant and brief generation), so a signed-in user cannot spam expensive model calls
-* observability through Vercel Analytics and Speed Insights for Core Web Vitals, the AI Gateway dashboard for model traffic, latency and cost, and the `eval_runs` table for grounding history
+* observability through Vercel Analytics and Speed Insights for Core Web Vitals, the AI Gateway dashboard for model traffic, latency and cost, the `eval_runs` table for grounding history, and OpenTelemetry tracing of the AI through Langfuse (`instrumentation.ts`), which captures every assistant turn and brief down to each individual tool call, grouped by conversation thread. The tracing is vendor-neutral: the app emits standard OpenTelemetry and Langfuse is only the OTLP destination, so it is off when no keys are set and swappable for any OTLP backend
 
 The Queensland boundary GeoJSON is a static asset served from the CDN (pointed at by an environment variable), not the app bundle.
 
@@ -178,9 +179,15 @@ The assistant streams token by token over a Route Handler using the Vercel AI SD
 
 ## Caching strategy
 
-* **Database indexes** support the common access patterns (suburb plus category plus date, category plus date, suburb plus date, granularity plus date).
-* **API caching**: read-heavy sentiment routes return `s-maxage` with `stale-while-revalidate`, suitable because the data is analytical and does not need second-by-second freshness.
-* **Revalidation**: the import flow can be paired with on-demand revalidation so fresh data becomes visible after an import.
+Three layers, each with a clear purpose:
+
+* **Page (ISR)**: the dashboard is a Server Component with `export const revalidate = 300`, so the shared shell is rebuilt at most every five minutes.
+* **Data layer (`unstable_cache`)**: the shared, slow-changing sentiment reads (the record, trend, themes, category breakdown and comparison) are cached per slice and tagged in `lib/services/sentimentService.ts`, so repeat selections skip Neon entirely; the filter catalogue is cached the same way with a one-hour TTL.
+* **API (edge CDN)**: read-heavy sentiment routes return `s-maxage=300, stale-while-revalidate=3600` (`lib/cache/cacheKeys.ts`), so most loads are served from the edge near the user rather than from a Function or Neon.
+* **Revalidation**: a token-guarded `/api/revalidate` busts the catalogue, record, trend and comparison tags on import, so new data appears immediately rather than waiting out the TTLs.
+* **Database indexes** support the common access patterns: a grain index for the hot single-slice reads, per-query composites, and a loose-index-scan (skip-scan) catalogue that keeps the filter lists cheap over millions of rows.
+
+The data updates monthly, so this trades a little freshness for instant loads and a flat database bill under load — a deliberate choice, not an accident.
 
 ## Core Web Vitals decisions
 
@@ -337,6 +344,14 @@ NEXT_PUBLIC_APP_ENV=development
 NEXT_PUBLIC_ENABLE_ARCHITECTURE_PANEL=true
 EVALS_REQUIRE_PASS=false
 SUBURB_BOUNDARY_GEOJSON_URL=
+```
+
+Optional AI observability (Langfuse). When both keys are set, every assistant turn, brief draft and thread-title call is traced to Langfuse over OpenTelemetry, grouped by conversation thread, down to each tool call. Leave blank to disable tracing with no behaviour change.
+
+```env
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 `NEXT_PUBLIC_*` values are inlined at build time, so set them before building and restart the dev server after changing them. On Vercel the AI Gateway authenticates with the project's OIDC token, so `AI_GATEWAY_API_KEY` is only needed locally.

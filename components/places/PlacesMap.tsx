@@ -19,6 +19,11 @@ import {
 } from "@/lib/map/config";
 import type { PlacePoint } from "@/lib/repositories/poiRepository";
 
+// Mapbox camera moves are JS-driven, so the globals.css reduced-motion rules cannot neutralise them.
+// Honour the OS setting by zeroing the animation duration for users who ask for reduced motion.
+const motionDuration = (ms: number): number =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
+
 // The clustered point map behind the Places explorer. mapbox-gl is imported inside the effect (it
 // needs `window`) and this whole component is code-split, so the library stays out of the directory
 // shell's first load. The map is created once; changing the points (a new filter) updates the source
@@ -266,7 +271,7 @@ export function PlacesMap({
             if (clusterId == null) return;
             map.getSource("places").getClusterExpansionZoom(clusterId, (error: unknown, zoom: number) => {
               if (error) return;
-              map.easeTo({ center: features[0].geometry.coordinates, zoom });
+              map.easeTo({ center: features[0].geometry.coordinates, zoom, duration: motionDuration(300) });
             });
           });
           map.on("mouseenter", "clusters", () => (map.getCanvas().style.cursor = "pointer"));
@@ -318,7 +323,7 @@ export function PlacesMap({
           [minLon, minLat],
           [maxLon, maxLat],
         ],
-        { padding: 64, maxZoom: 13, duration: 400 },
+        { padding: 64, maxZoom: 13, duration: motionDuration(400) },
       );
     }
     // Driven by points changes; fitKey is read through the closure (current when points arrive for a
@@ -369,7 +374,7 @@ export function PlacesMap({
       center: [place.lon, place.lat],
       zoom: Math.max(map.getZoom?.() ?? 0, 14),
       offset: [modalOffset, 0],
-      duration: 800,
+      duration: motionDuration(800),
     });
     // Trigger only on a new list pick (the nonce); reading the latest id/points through the closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps

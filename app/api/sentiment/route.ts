@@ -15,12 +15,11 @@ export async function GET(request: Request) {
     const context = await getSentimentDashboardContext(filters);
     return Response.json(context, { headers: SENTIMENT_CACHE_HEADERS });
   } catch (error) {
-    // The service throws when the selected slice has no record. That's a "not found" for the
-    // caller, not a server fault, so map it to 404 with the explanatory message rather than
-    // letting it surface as a 500.
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Unknown sentiment API error" },
-      { status: 404 },
-    );
+    // Only the "no data imported" case is a genuine not-found. A real fault (a Neon outage, a SQL
+    // error) must surface as a 500 so it stays observable, rather than being masked as a missing
+    // resource the way mapping every error to 404 would.
+    const message = error instanceof Error ? error.message : "Unknown sentiment API error";
+    const status = message.includes("No sentiment data has been imported") ? 404 : 500;
+    return Response.json({ error: message }, { status });
   }
 }

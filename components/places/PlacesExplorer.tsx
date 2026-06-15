@@ -52,6 +52,18 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
   // first and apply the queued filter once it has closed (see navigateToFilters).
   const pendingFilterRef = useRef<string | null>(null);
 
+  // Mobile vs desktop: the suburb overview floats over the map on desktop, but on phones (where the
+  // map is only 40vh) it renders as a card at the top of the scrollable list instead. Tracked in JS so
+  // only one of the two mounts and the overview is fetched once. Defaults to mobile; set on mount.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   // Refetch points whenever the URL filters change.
   useEffect(() => {
     let cancelled = false;
@@ -196,14 +208,14 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
                   {place.rating ? place.rating.toFixed(1) : "-"}
                   <span className="text-amber-500"> ★</span>
                 </p>
-                <p className="text-[11px] text-gray-400">{place.reviewsCount.toLocaleString()} reviews</p>
+                <p className="text-[11px] text-gray-500">{place.reviewsCount.toLocaleString()} reviews</p>
               </div>
             </button>
           </li>
         ))}
       </ul>
       {points.length > listed.length && (
-        <p className="px-4 py-3 text-center text-xs text-gray-400">
+        <p className="px-4 py-3 text-center text-xs text-gray-500">
           Showing {listed.length} of {points.length.toLocaleString()}. Refine your search to narrow it down.
         </p>
       )}
@@ -226,7 +238,7 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
             }}
             className="flex h-10 w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500"
           >
-            <Search className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+            <Search className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
             <input
               value={queryInput}
               onChange={(event) => setQueryInput(event.target.value)}
@@ -276,12 +288,8 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
           flyToNonce={flyTo?.nonce}
         />
 
-        {/* Suburb overview: floating over the map on desktop only. */}
-        {suburb && (
-          <div className="hidden md:block">
-            <SuburbPanel suburb={suburb} onClear={clearSuburb} />
-          </div>
-        )}
+        {/* Suburb overview: floating over the map on desktop. */}
+        {isDesktop && suburb && <SuburbPanel suburb={suburb} onClear={clearSuburb} />}
 
         {!placeOpen && (
           <div className="pointer-events-none absolute inset-x-0 bottom-6 hidden justify-center px-4 md:flex">
@@ -298,6 +306,17 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
         className="min-h-0 flex-1 overflow-y-auto bg-white md:col-start-1 md:row-start-2 md:border-r md:border-gray-200"
         aria-label="Places"
       >
+        {/* On phones the suburb overview cannot float over the small map, so it sits at the top of the
+            scrollable list when a suburb is selected. */}
+        {!isDesktop && suburb && (
+          <div className="border-b border-gray-100 p-3">
+            <SuburbPanel
+              suburb={suburb}
+              onClear={clearSuburb}
+              className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+            />
+          </div>
+        )}
         {placeList}
       </div>
     </div>

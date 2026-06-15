@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bot, ChevronLeft, ChevronRight, FileText, Gauge, HelpCircle, LayoutDashboard, MapPin, Menu, X } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/ui/sentiment";
+import { HelpModal } from "./HelpModal";
 
 // Application shell. On md+ it is a fixed, collapsible left sidebar with the main content offset
 // beside it (so content fills the remaining width rather than floating in a centred column).
@@ -41,7 +42,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
             >
               <Icon className="h-4 w-4 shrink-0" />
               {item.label}
-              <span className="ml-auto rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+              <span className="ml-auto rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
                 Soon
               </span>
             </span>
@@ -69,17 +70,13 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+export function AppShell({ children, initialCollapsed = false }: { children: ReactNode; initialCollapsed?: boolean }) {
+  // Seeded from the server-read cookie, so the first render already matches the user's preference and
+  // the content margin never shifts after hydration (no CLS for returning collapsed-sidebar users).
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const pathname = usePathname();
-
-  // Read the persisted preference after mount (not in a lazy initialiser) so server and client
-  // first render agree, which avoids a hydration mismatch on the sidebar.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCollapsed(localStorage.getItem("ppSidebarCollapsed") === "1");
-  }, []);
 
   // Escape closes the mobile menu. (Tapping a nav item closes it via NavLinks' onNavigate, and the
   // backdrop closes it on click, so there is no need to react to route changes in an effect.)
@@ -95,7 +92,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   function toggle() {
     setCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem("ppSidebarCollapsed", next ? "1" : "0");
+      // Persist in a cookie (not localStorage) so the server can read it and render the correct
+      // sidebar width on first paint, avoiding a post-hydration content-margin shift (CLS).
+      document.cookie = `ppSidebarCollapsed=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
       return next;
     });
   }
@@ -131,16 +130,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             <UserButton />
             <span className="text-sm font-medium text-gray-600">Account</span>
           </div>
-          <a
-            href="https://github.com/paiwandkarem/placepulse-sentiment-console"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
             <HelpCircle className="h-4 w-4 shrink-0" />
             Help and docs
-          </a>
-          <p className="px-3 pt-2 text-xs text-gray-400">Customer sentiment intelligence</p>
+          </button>
         </div>
       </aside>
 
@@ -165,7 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
             aria-expanded={mobileOpen}
-            className="-ml-1 rounded-lg p-2 text-gray-700 hover:bg-gray-100"
+            className="-ml-1 flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -213,15 +210,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
             </nav>
             <div className="border-t border-gray-100 p-3">
-              <a
-                href="https://github.com/paiwandkarem/placepulse-sentiment-console"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  setHelpOpen(true);
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
               >
                 <HelpCircle className="h-4 w-4 shrink-0" />
                 Help and docs
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -231,6 +230,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className={cn("pt-14 transition-all duration-300 ease-in-out md:pt-0", collapsed ? "md:ml-0" : "md:ml-64")}>
         {children}
       </div>
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
