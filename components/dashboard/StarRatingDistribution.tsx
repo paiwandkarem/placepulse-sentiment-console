@@ -28,15 +28,16 @@ export function StarRatingDistribution({ record }: { record: SentimentRecord }) 
   const options = useMemo(
     () => ({
       chart: { type: "bar" as const, toolbar: { show: false }, animations: { enabled: false }, fontFamily: CHART_FONT },
-      plotOptions: { bar: { columnWidth: "55%", borderRadius: 6, distributed: true, dataLabels: { position: "center" } } },
+      plotOptions: { bar: { columnWidth: "55%", borderRadius: 6, distributed: true, dataLabels: { position: "top" } } },
       colors: buckets.map((b) => b.colour),
       legend: { show: false },
       dataLabels: {
         enabled: true,
         formatter: (v: number) => `${Number(v).toFixed(0)}%`,
-        offsetY: 0,
-        style: { fontSize: "15px", fontWeight: 800, colors: ["#ffffff"] },
-        dropShadow: { enabled: true, top: 1, left: 0, blur: 2, opacity: 0.45 },
+        // Sit the value just above each bar in dark text, so a tiny bar's label stays readable on the
+        // white card instead of becoming white-on-white when it cannot fit inside a short bar.
+        offsetY: -18,
+        style: { fontSize: "13px", fontWeight: 800, colors: ["#374151"] },
       },
       xaxis: {
         categories: buckets.map((b) => b.x),
@@ -44,7 +45,7 @@ export function StarRatingDistribution({ record }: { record: SentimentRecord }) 
         axisTicks: { show: false },
         labels: { style: { fontSize: "12px", colors: "#6b7280" } },
       },
-      yaxis: { labels: { formatter: (v: number) => `${Math.round(v)}%`, style: { colors: "#6b7280" } } },
+      yaxis: { max: 100, labels: { formatter: (v: number) => `${Math.round(v)}%`, style: { colors: "#6b7280" } } },
       grid: { strokeDashArray: 3, borderColor: "#e5e7eb" },
       tooltip: { y: { formatter: (v: number) => `${v.toFixed(1)}%` } },
     }),
