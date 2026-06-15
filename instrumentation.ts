@@ -7,34 +7,30 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 // its turn. We export those spans to Langfuse over OTLP, which gives us a per-conversation view down
 // to each individual lookup, grouped by thread (see the sessionId metadata in lib/ai/telemetry.ts).
 //
-// Langfuse is only the OTLP destination here. The instrumentation is vendor-neutral: point these env
-// vars at any OTLP backend (or Vercel's own collector) and nothing in the app changes. With no keys
-// set, telemetry is off and this just registers the no-op service, so local dev and the build are
-// unaffected.
+// Two deliberate performance choices, so this never costs the dashboard anything:
+//   1. We register nothing at all unless Langfuse is actually configured. With no keys there is zero
+//      OpenTelemetry on the hot path (the dashboard's server render and its Neon queries).
+//   2. When it IS configured we pass instrumentations: [] to switch OFF @vercel/otel's default
+//      auto-instrumentation, which otherwise wraps every server fetch, including each Neon query, in a
+//      span. We only want the AI SDK's own spans, which it emits through the global tracer regardless,
+//      so the database path is never traced and never slowed.
+//
+// Langfuse is only the OTLP destination: point these env vars at any OTLP backend and nothing else
+// changes. AI tracing itself only runs on the Node runtime, so the edge runtime is skipped entirely.
 export function register() {
-  // The exporter uses Node APIs (Buffer), and our AI work only ever runs on the Node runtime, so we
-  // skip the export wiring under the edge runtime rather than risk loading it there.
-  if (process.env.NEXT_RUNTIME === "edge") {
-    registerOTel({ serviceName: "placepulse" });
-    return;
-  }
+  if (process.env.NEXT_RUNTIME === "edge") return;
 
   const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
   const secretKey = process.env.LANGFUSE_SECRET_KEY;
+  if (!publicKey || !secretKey) return;
+
   const host = (process.env.LANGFUSE_HOST ?? "https://cloud.langfuse.com").replace(/\/$/, "");
-
-  if (!publicKey || !secretKey) {
-    // No destination configured: register the service without an exporter so the SDK's spans are a
-    // cheap no-op instead of an error.
-    registerOTel({ serviceName: "placepulse" });
-    return;
-  }
-
   // Langfuse authenticates its OTLP endpoint with HTTP Basic auth over the key pair.
   const auth = Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
 
   registerOTel({
     serviceName: "placepulse",
+    instrumentations: [],
     traceExporter: new OTLPTraceExporter({
       url: `${host}/api/public/otel/v1/traces`,
       headers: { Authorization: `Basic ${auth}` },
