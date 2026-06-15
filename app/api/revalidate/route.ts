@@ -18,9 +18,13 @@ export async function POST(request: Request) {
   // CDN via Cache-Control and age out on their own stale-while-revalidate window. This
   // endpoint targets the Next.js page cache, which is what a user actually looks at.
   revalidatePath("/");
-  // Drop the independently-cached filter catalogue so a re-import's new suburbs/categories/dates
-  // appear immediately rather than after its hourly TTL.
+  // Drop the independently-cached data layer so a re-import's new numbers appear immediately rather
+  // than after their TTLs: the filter catalogue, plus the per-slice record/theme, trend and
+  // comparison reads (all tagged in lib/services/sentimentService.ts).
   revalidateTag(CACHE_TAGS.filters, "max");
+  revalidateTag(CACHE_TAGS.records, "max");
+  revalidateTag(CACHE_TAGS.trends, "max");
+  revalidateTag(CACHE_TAGS.comparisons, "max");
 
   return Response.json({ ok: true, revalidatedAt: new Date().toISOString() });
 }

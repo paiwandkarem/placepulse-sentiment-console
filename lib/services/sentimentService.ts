@@ -37,6 +37,36 @@ const cachedListFilters = unstable_cache(listFilters, ["sentiment-filter-catalog
   revalidate: 3600,
 });
 
+// Wrap a repository read in Next's data cache so the shared, slow-changing sentiment numbers are
+// computed roughly once per slice rather than on every request, and tag it so an import can bust it
+// on demand (see app/api/revalidate). The arguments are part of the cache key, so each suburb /
+// category / date combination caches independently. The fallback mirrors the catalogue's: outside a
+// request (a CLI eval or a script) Next's incremental cache is absent, so run the live query instead
+// of throwing.
+function cachedRead<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  keyParts: string[],
+  tags: string[],
+): (...args: A) => Promise<R> {
+  const cached = unstable_cache(fn, keyParts, { tags, revalidate: 3600 });
+  return async (...args: A) => {
+    try {
+      return await cached(...args);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("incrementalCache")) {
+        return fn(...args);
+      }
+      throw error;
+    }
+  };
+}
+
+const cachedGetRecord = cachedRead(getRecord, ["sentiment-record"], [CACHE_TAGS.records]);
+const cachedGetTrend = cachedRead(getTrend, ["sentiment-trend"], [CACHE_TAGS.trends]);
+const cachedGetThemes = cachedRead(getThemes, ["sentiment-themes"], [CACHE_TAGS.records]);
+const cachedGetCategoryBreakdown = cachedRead(getCategoryBreakdown, ["sentiment-category-breakdown"], [CACHE_TAGS.records]);
+const cachedCompareAreas = cachedRead(compareAreas, ["sentiment-comparison"], [CACHE_TAGS.comparisons]);
+
 export async function listAvailableFilters(): Promise<FilterCatalogue> {
   try {
     return await cachedListFilters();
@@ -112,7 +142,7 @@ export async function getSentimentDashboardContext(input: SentimentFilters): Pro
   // The user no longer picks a period. We fetch the whole trend for the area/category and pin the
   // snapshot (KPIs, drivers, words, distributions) to the most recent month; the chart carries
   // the history. The trend is ordered ascending, so the last point is the latest month.
-  const trend = await getTrend({
+  const trend = await cachedGetTrend({
     aggType: resolved.aggType,
     areaName: resolved.areaName,
     category: resolved.category,
@@ -126,10 +156,10 @@ export async function getSentimentDashboardContext(input: SentimentFilters): Pro
   const lastYearDate = dayjs(latestDate).subtract(1, "year").format("YYYY-MM-DD");
 
   const [record, availableFilters, lastYearThemes, categoryBreakdown] = await Promise.all([
-    getRecord(filters),
+    cachedGetRecord(filters),
     listAvailableFilters(),
-    getThemes({ ...filters, date: lastYearDate }),
-    getCategoryBreakdown({ areaName: resolved.areaName, date: latestDate }),
+    cachedGetThemes({ ...filters, date: lastYearDate }),
+    cachedGetCategoryBreakdown({ areaName: resolved.areaName, date: latestDate }),
   ]);
 
   if (!record) return null;
@@ -145,7 +175,7 @@ export async function getSentimentDashboardContext(input: SentimentFilters): Pro
 // fail if the currently-selected date happened to have no row.
 export async function getSentimentTrend(input: SentimentFilters): Promise<SentimentTrendPoint[]> {
   const filters = await normaliseFilters(input);
-  return getTrend({ aggType: filters.aggType, areaName: filters.areaName, category: filters.category });
+  return cachedGetTrend({ aggType: filters.aggType, areaName: filters.areaName, category: filters.category });
 }
 
 // Queensland suburbs ranked by satisfaction for one category, for the category deep-dive brief.
@@ -154,7 +184,7 @@ export async function getCategoryRanking(category: string) {
 }
 
 export async function getAreaComparison(input: ComparisonInput): Promise<SentimentComparison> {
-  const comparison = await compareAreas(input);
+  const comparison = await cachedCompareAreas(input);
 
   if (!comparison) {
     throw new Error("Comparison data was not available for the selected filters.");

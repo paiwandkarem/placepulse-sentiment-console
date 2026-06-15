@@ -2,9 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Bot, Maximize2, Minimize2, RotateCcw, SquareArrowOutUpRight, X } from "lucide-react";
 import { cn } from "@/lib/ui/sentiment";
-import { AssistantChat } from "./AssistantChat";
+
+// Lazy-load the chat engine (the AI SDK and streamdown) so it stays out of the dashboard's first
+// load and only downloads when the dock is first opened, the same way the map drawer defers mapbox.
+// The launcher and the dock shell stay cheap (icons and local state).
+const AssistantChat = dynamic(() => import("./AssistantChat").then((m) => m.AssistantChat), {
+  ssr: false,
+  loading: () => <div className="flex flex-1 items-center justify-center text-sm text-gray-500">Loading…</div>,
+});
 
 // sessionStorage key under which the dock keeps its in-progress conversation, so it survives closing
 // the panel or navigating to a place detail. Per-tab and ephemeral by design: a new tab starts fresh
