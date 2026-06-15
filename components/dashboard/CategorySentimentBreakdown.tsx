@@ -102,7 +102,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
+      <div className="flex min-h-[392px] items-center justify-center rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
         No category breakdown for {areaLabel}.
       </div>
     );
@@ -123,6 +123,10 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
           card instead of letting them push the whole page sideways. */}
       <div className="overflow-x-auto">
         <div className="min-w-[320px] sm:min-w-[360px]">
+      {/* Fixed-height, vertically scrolled row list so the card has a constant footprint no matter how
+          many categories a suburb has: the page never reflows on load or when switching suburbs (CLS),
+          and many categories scroll within the card instead of growing it. */}
+      <div className="h-72 overflow-y-auto">
       <ul className="divide-y divide-gray-100">
         {sorted.map((c) => {
           const left = position(c.overallSatisfaction100);
@@ -174,6 +178,7 @@ export function CategorySentimentBreakdown({ categories, areaLabel }: { categori
           );
         })}
       </ul>
+      </div>
 
       <div className="mt-3 grid items-center gap-3 border-t border-gray-100 pt-2" style={{ gridTemplateColumns: COLS }}>
         <span className="text-[11px] text-gray-500">Sentiment score</span>

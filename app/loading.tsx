@@ -30,9 +30,10 @@ export default function Loading() {
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
         <Skeleton className="mb-8 h-[328px] w-full sm:h-[360px] md:h-[380px]" />
 
-        {/* Category breakdown */}
+        {/* Category breakdown — now a fixed-height card (see CategorySentimentBreakdown), so the
+            skeleton can reserve its exact footprint and nothing shifts when the data lands. */}
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-80 w-full" />
+        <Skeleton className="mb-8 h-[392px] w-full" />
 
         {/* Drivers */}
         <Skeleton className="mb-2 h-5 w-80 max-w-full" />
