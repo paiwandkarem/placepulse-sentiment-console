@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MapPin, X } from "lucide-react";
+import { Loader2, MapPin, X } from "lucide-react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { MapStatusOverlay } from "@/components/ui/MapStatusOverlay";
 import { MapLegend } from "@/components/ui/MapLegend";
@@ -45,11 +45,20 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "no-token">(
     hasMapToken() ? "loading" : "no-token",
   );
+  // Selecting a suburb re-renders the dashboard on the server (the page reads searchParams), so the
+  // navigation can take a moment. Drive it through a transition: React keeps the current view on
+  // screen (no blank flash) and isPending lets us show that the new selection is loading. pendingName
+  // is the suburb we're switching to, shown until the server render lands and `selected` catches up.
+  const [isPending, startTransition] = useTransition();
+  const [pendingName, setPendingName] = useState<string | null>(null);
 
-  function setParam(mutate: (next: URLSearchParams) => void) {
+  function setParam(mutate: (next: URLSearchParams) => void, label?: string) {
     const next = new URLSearchParams(params.toString());
     mutate(next);
-    router.replace(`/?${next.toString()}`, { scroll: false });
+    if (label) setPendingName(label);
+    startTransition(() => {
+      router.replace(`/?${next.toString()}`, { scroll: false });
+    });
   }
 
   // Move the "selected" feature-state onto the current selection (and off the previous one).
@@ -105,7 +114,7 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
 
           map.on("click", "suburb-fill", (event: { features?: GeoJSON.Feature[] }) => {
             const name = event.features?.[0]?.properties?.areaName;
-            if (typeof name === "string") setParam((next) => next.set("areaName", name));
+            if (typeof name === "string") setParam((next) => next.set("areaName", name), name);
           });
 
           // Hover: recolour the feature under the cursor via feature-state (clearing the previous
@@ -184,7 +193,12 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800">
           <MapPin className="h-[18px] w-[18px] text-emerald-600" aria-hidden="true" />
-          {selected}
+          {/* While the transition runs, show the suburb we're switching to; once it lands `selected`
+              is authoritative and any stale pendingName is ignored. */}
+          {isPending ? pendingName ?? selected : selected}
+          {isPending && (
+            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" aria-label="Loading suburb" />
+          )}
         </div>
         <button
           type="button"
@@ -200,6 +214,10 @@ export function MapPanel({ suburbs, selected }: { suburbs: string[]; selected: s
       </p>
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200">
         <div ref={containerRef} className="h-full w-full" />
+        {/* Thin indeterminate bar while the dashboard re-renders for the new selection. */}
+        {isPending && (
+          <div className="absolute inset-x-0 top-0 z-10 h-0.5 animate-pulse bg-emerald-500" aria-hidden="true" />
+        )}
         {status !== "ready" && <MapStatusOverlay status={status} />}
         {status === "ready" && (
           <MapLegend
