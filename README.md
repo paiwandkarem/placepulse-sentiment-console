@@ -28,10 +28,11 @@ Built commit by commit. Every core surface is now built:
 | Dashboard (`/`) | Built | KPIs, three-year trend, category breakdown, theme drivers, word cloud, distributions, suburb boundary map. |
 | Assistant (docked copilot) | Built | Streaming grounded chat that can drive the dashboard filters by chat; generative tool cards over an audit timeline; conversations auto-saved as "From dashboard" threads. |
 | Assistant (full-screen page, `/assistant`) | Built | Same engine with per-user, resumable conversation threads. |
-| Briefs (`/briefs`) | Built | Durable AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum); suburbs chosen on a map. |
+| Briefs (`/briefs`) | Built | AI-generated PDF briefs in four types (overview, suburb comparison, category deep-dive, momentum), generated off the response path via `after()`; suburbs chosen on a map. |
 | Evals | Built | Grounding suite across every tool tier plus refusal and dashboard-action cases, with an independent LLM faithfulness judge; stored in `eval_runs`, runnable via `npm run evals` (or `ci:full`). |
 | Places explorer (`/places`) | Built | Queensland business directory, place detail slide-overs with imagery, and a clustered point map over the POI dataset. |
 | Auth | Built | Clerk via the Vercel Marketplace; the app is sign-in gated and AI/brief data is scoped per user. |
+| Observability | Built | Vercel Analytics + Speed Insights (Core Web Vitals), the AI Gateway (model cost/latency), `eval_runs` (grounding history), and OpenTelemetry tracing to Langfuse down to each tool call, grouped by conversation thread. |
 
 Built commit by commit, with the reasoning behind each non-trivial decision recorded as the project progressed.
 
