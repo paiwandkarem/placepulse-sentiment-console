@@ -23,7 +23,7 @@ type Overview = {
   notWorking: Driver[];
 };
 
-export function SuburbPanel({ suburb, onClear }: { suburb: string; onClear: () => void }) {
+export function SuburbPanel({ suburb, onClear, className }: { suburb: string; onClear: () => void; className?: string }) {
   const [overview, setOverview] = useState<Overview | null | undefined>(undefined);
 
   useEffect(() => {
@@ -45,7 +45,12 @@ export function SuburbPanel({ suburb, onClear }: { suburb: string; onClear: () =
   }, [suburb]);
 
   return (
-    <div className="pointer-events-auto absolute left-4 top-[4.75rem] z-30 w-[18.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur">
+    <div
+      className={
+        className ??
+        "pointer-events-auto absolute left-4 top-[4.75rem] z-30 w-[18.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur"
+      }
+    >
       <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Suburb overview</p>

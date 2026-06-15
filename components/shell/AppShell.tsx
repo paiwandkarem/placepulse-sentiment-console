@@ -162,7 +162,7 @@ export function AppShell({ children, initialCollapsed = false }: { children: Rea
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
             aria-expanded={mobileOpen}
-            className="-ml-1 rounded-lg p-2 text-gray-700 hover:bg-gray-100"
+            className="-ml-1 flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>

@@ -52,6 +52,18 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
   // first and apply the queued filter once it has closed (see navigateToFilters).
   const pendingFilterRef = useRef<string | null>(null);
 
+  // Mobile vs desktop: the suburb overview floats over the map on desktop, but on phones (where the
+  // map is only 40vh) it renders as a card at the top of the scrollable list instead. Tracked in JS so
+  // only one of the two mounts and the overview is fetched once. Defaults to mobile; set on mount.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   // Refetch points whenever the URL filters change.
   useEffect(() => {
     let cancelled = false;
@@ -276,12 +288,8 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
           flyToNonce={flyTo?.nonce}
         />
 
-        {/* Suburb overview: floating over the map on desktop only. */}
-        {suburb && (
-          <div className="hidden md:block">
-            <SuburbPanel suburb={suburb} onClear={clearSuburb} />
-          </div>
-        )}
+        {/* Suburb overview: floating over the map on desktop. */}
+        {isDesktop && suburb && <SuburbPanel suburb={suburb} onClear={clearSuburb} />}
 
         {!placeOpen && (
           <div className="pointer-events-none absolute inset-x-0 bottom-6 hidden justify-center px-4 md:flex">
@@ -298,6 +306,17 @@ export function PlacesExplorer({ categories, areaNames }: { categories: string[]
         className="min-h-0 flex-1 overflow-y-auto bg-white md:col-start-1 md:row-start-2 md:border-r md:border-gray-200"
         aria-label="Places"
       >
+        {/* On phones the suburb overview cannot float over the small map, so it sits at the top of the
+            scrollable list when a suburb is selected. */}
+        {!isDesktop && suburb && (
+          <div className="border-b border-gray-100 p-3">
+            <SuburbPanel
+              suburb={suburb}
+              onClear={clearSuburb}
+              className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+            />
+          </div>
+        )}
         {placeList}
       </div>
     </div>
