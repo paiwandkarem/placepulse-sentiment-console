@@ -4,6 +4,7 @@ import { z } from "zod";
 import { model, withModelFallback, MAX_RETRIES } from "@/lib/ai/model";
 import { assistantTools } from "@/lib/assistant/tools";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
+import { draftOverviewForEval } from "@/lib/briefs/service";
 import { EVAL_CASES, type EvalCase } from "./cases";
 
 // Runs a case through the same model, tools and grounding prompt the live assistant uses (via
@@ -180,4 +181,68 @@ export async function runAllEvals(): Promise<CaseResult[]> {
     results.push(await runEvalCase(testCase));
   }
   return results;
+}
+
+// Brief evals: the same grounding discipline applied to the long-form PDF briefs. We draft the
+// overview brief for a data-rich suburb (the real schema, prompt and digest, just without the PDF or
+// Blob), then check it is structurally complete and that an independent judge finds every claim
+// supported by the digest. The schema already guarantees the shape; this guards the content against
+// invention, the way the synthesis-case judge does for the assistant. The same pattern extends to the
+// comparison, category and momentum briefs.
+export async function runBriefEvals(): Promise<CaseResult[]> {
+  const draft = await draftOverviewForEval("Brisbane City");
+  if (!draft) {
+    return [
+      {
+        id: "brief-overview",
+        question: "Overview brief: Brisbane City",
+        pass: false,
+        checks: [{ name: "data available", pass: false, detail: "no sentiment data for Brisbane City" }],
+        toolsCalled: [],
+        answer: "",
+      },
+    ];
+  }
+
+  const { content, digest } = draft;
+  const answer = JSON.stringify(content);
+  const checks: CheckResult[] = [];
+
+  // Structure: the schema constrains the shape, so this asserts the brief is not degenerate — a real
+  // headline and summary, plus the required number of findings and actions.
+  const structureOk =
+    content.headline.trim().length > 0 &&
+    content.executiveSummary.trim().length > 0 &&
+    content.keyFindings.length >= 3 &&
+    content.recommendedActions.length >= 3;
+  checks.push({
+    name: "structure",
+    pass: structureOk,
+    detail: structureOk
+      ? `headline + summary + ${content.keyFindings.length} findings + ${content.recommendedActions.length} actions`
+      : "missing headline/summary or too few findings/actions",
+  });
+
+  // Faithfulness judge (Opus): every figure, theme, strength, weakness and business named in the brief
+  // must come from the digest it was given. The hallucination regression for the brief prose.
+  checks.push(
+    await judgeFaithfulness(
+      "Every figure, theme, strength, weakness, suburb and business named in the brief must come from, " +
+        "or be directly derivable from, the data digest. Flag any invented number, theme or business.",
+      "Overview brief for Brisbane City",
+      [digest],
+      answer,
+    ),
+  );
+
+  return [
+    {
+      id: "brief-overview",
+      question: "Overview brief: Brisbane City",
+      pass: checks.every((check) => check.pass),
+      checks,
+      toolsCalled: [],
+      answer,
+    },
+  ];
 }

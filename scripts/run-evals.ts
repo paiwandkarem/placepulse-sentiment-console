@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { runAllEvals } from "../lib/evals/runEval";
+import { runAllEvals, runBriefEvals } from "../lib/evals/runEval";
 import { saveEvalRun } from "../lib/evals/repository";
 
 // CLI entry for the assistant grounding evals (npm run evals). Runs every case through the real
@@ -7,8 +7,10 @@ import { saveEvalRun } from "../lib/evals/repository";
 // EVALS_REQUIRE_PASS is set so the run can gate a pipeline.
 
 async function main(): Promise<void> {
-  console.log("Running assistant grounding evals...\n");
-  const results = await runAllEvals();
+  console.log("Running grounding evals (assistant + briefs)...\n");
+  const assistantResults = await runAllEvals();
+  const briefResults = await runBriefEvals();
+  const results = [...assistantResults, ...briefResults];
 
   for (const result of results) {
     console.log(`${result.pass ? "PASS" : "FAIL"}  ${result.id}`);

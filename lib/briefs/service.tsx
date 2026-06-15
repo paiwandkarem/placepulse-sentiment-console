@@ -13,6 +13,7 @@ import {
   comparisonContentSchema,
   momentumContentSchema,
   overviewContentSchema,
+  type OverviewContent,
   type BriefChartData,
   type BriefKeywords,
   type BriefMeta,
@@ -252,6 +253,33 @@ export async function runBriefJob(
       error: error instanceof Error ? error.message : "Brief generation failed.",
     });
   }
+}
+
+// Draft-only overview brief for the eval suite: it builds the same digest the live job feeds the model
+// and runs the same schema-constrained generateObject, but skips the PDF, Blob and DB writes. Returns
+// the drafted content plus the digest (the only permitted source of facts) so the eval can grade the
+// brief's faithfulness. Kept separate from runBriefJob so the production path is untouched.
+export async function draftOverviewForEval(
+  areaName: string,
+  category?: string,
+): Promise<{ content: OverviewContent; digest: string } | null> {
+  const ctx = await getSentimentDashboardContext({
+    areaName,
+    category,
+    aggType: aggTypeForCategory(category),
+  });
+  if (!ctx) return null;
+  const digest = buildDigest(ctx);
+  const { object } = await withModelFallback("brief", (m) =>
+    generateObject({
+      model: m,
+      maxRetries: MAX_RETRIES,
+      schema: overviewContentSchema,
+      system: BRIEF_SYSTEM_PROMPT,
+      prompt: `Write the brief from this data.\n\n${digest}`,
+    }),
+  );
+  return { content: object, digest };
 }
 
 // ---- Comparison brief (B4): two or three suburbs, head to head ----
