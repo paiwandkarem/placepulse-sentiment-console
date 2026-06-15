@@ -5,6 +5,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { createBriefJob, listBriefJobs } from "@/lib/briefs/repository";
 import { runBriefJob, runCategoryBriefJob, runComparisonBriefJob, runMomentumBriefJob } from "@/lib/briefs/service";
 import { BRIEF_TYPES } from "@/lib/briefs/schema";
+import { langfuseSpanProcessor } from "@/instrumentation";
 import { rateLimit } from "@/lib/ratelimit";
 
 // Brief generation is slow (a schema-constrained model draft plus a PDF render), so it runs after
@@ -55,6 +56,14 @@ export async function POST(request: Request): Promise<Response> {
   const email = user?.primaryEmailAddress?.emailAddress;
   const actor = email ? { userId, email } : { userId };
 
+  // Run a brief job off the response path, then flush its trace to Langfuse before the function can
+  // suspend. The flush is a no-op when tracing is not configured.
+  const startJob = (job: () => Promise<void>) =>
+    after(async () => {
+      await job();
+      await langfuseSpanProcessor?.forceFlush();
+    });
+
   if (type === "comparison") {
     const suburbs = [...new Set(areaNames)];
     if (suburbs.length < 2) {
@@ -62,7 +71,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     const title = `${suburbs.join(" vs ")}${category ? `: ${category}` : ""} comparison`;
     await createBriefJob({ id, userId, type, title, filters: { areaNames: suburbs, category: category ?? null } });
-    after(() => runComparisonBriefJob(id, { areaNames: suburbs, category }, actor));
+    startJob(() => runComparisonBriefJob(id, { areaNames: suburbs, category }, actor));
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
@@ -72,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
     }
     const title = `${category}: Queensland category deep-dive`;
     await createBriefJob({ id, userId, type, title, filters: { category } });
-    after(() => runCategoryBriefJob(id, { category }, actor));
+    startJob(() => runCategoryBriefJob(id, { category }, actor));
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
@@ -85,13 +94,13 @@ export async function POST(request: Request): Promise<Response> {
   if (type === "momentum") {
     const title = `${areaName}${category ? `: ${category}` : ""} momentum`;
     await createBriefJob({ id, userId, type, title, filters: { areaName, category: category ?? null } });
-    after(() => runMomentumBriefJob(id, { areaName, category }, actor));
+    startJob(() => runMomentumBriefJob(id, { areaName, category }, actor));
     return Response.json({ id, status: "running", title }, { status: 202 });
   }
 
   const title = category ? `${areaName}: ${category} sentiment brief` : `${areaName} sentiment brief`;
   await createBriefJob({ id, userId, type, title, filters: { areaName, category: category ?? null } });
-  after(() => runBriefJob(id, { areaName, category }, actor));
+  startJob(() => runBriefJob(id, { areaName, category }, actor));
 
   return Response.json({ id, status: "running", title }, { status: 202 });
 }

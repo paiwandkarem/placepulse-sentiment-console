@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
 import { model, MAX_RETRIES } from "@/lib/ai/model";
 import { aiTelemetry } from "@/lib/ai/telemetry";
+import { langfuseSpanProcessor } from "@/instrumentation";
 import { rateLimit } from "@/lib/ratelimit";
 import { ASSISTANT_SYSTEM_PROMPT } from "@/lib/assistant/systemPrompt";
 import { assistantTools } from "@/lib/assistant/tools";
@@ -105,6 +106,9 @@ export async function POST(request: Request): Promise<Response> {
           console.error("Failed to persist chat session", sessionId, error);
         }
       });
+      // Send the turn's trace (with its tool-call spans) to Langfuse off the response path, so it is
+      // flushed before the function can suspend. No-op when tracing is not configured.
+      after(() => langfuseSpanProcessor?.forceFlush());
     },
     onError: (error) => (error instanceof Error ? error.message : "The assistant hit an error."),
   });
