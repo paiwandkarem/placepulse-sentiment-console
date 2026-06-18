@@ -1,12 +1,12 @@
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { DashboardBodySkeleton } from "@/components/dashboard/DashboardBodySkeleton";
 
 // Streamed instantly inside the shell while the dashboard's data resolves. The real page title and
 // subtitle render here as actual text (not skeletons) so First Contentful Paint fires on the heading
-// at ~TTFB instead of waiting for the data query — the dashboard's `Home` awaits its aggregation
-// before returning any JSX, so without this the first real text only appears once the DB query lands.
-// The reserved heights below mirror the real sections (KPI row, charts, drivers, word cloud,
-// distributions) so almost nothing shifts when the content swaps in (low CLS).
+// at ~TTFB instead of waiting for the data query. The data-dependent sections below are reserved by
+// the shared DashboardBodySkeleton, whose heights mirror the real components so the swap-in shifts
+// almost nothing (low CLS).
 export default function Loading() {
   return (
     <>
@@ -22,38 +22,7 @@ export default function Loading() {
           subtitle="How visitors rate and review each suburb, drawn from Google reviews: ratings, recurring themes, and sentiment over the past three years."
         />
         <hr className="my-8 border-gray-200" />
-
-        {/* KPI row */}
-        <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 w-full" />
-          ))}
-        </div>
-
-        {/* Over-time chart: match the card's real height (p-5 padding + the chart's responsive height,
-            h-72/sm:h-80/md:h-[340px]) so the swap-in does not nudge the page. */}
-        <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-[328px] w-full sm:h-[360px] md:h-[380px]" />
-
-        {/* Category breakdown — now a fixed-height card (see CategorySentimentBreakdown), so the
-            skeleton can reserve its exact footprint and nothing shifts when the data lands. */}
-        <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-[392px] w-full" />
-
-        {/* Drivers */}
-        <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-[560px] w-full" />
-
-        {/* Word cloud */}
-        <Skeleton className="mb-2 h-5 w-80 max-w-full" />
-        <Skeleton className="mb-8 h-[500px] w-full" />
-
-        {/* Distributions — match the components' responsive height exactly (h-80 on phones, 340 up) */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Skeleton className="h-80 w-full md:h-[340px]" />
-          <Skeleton className="h-80 w-full md:h-[340px]" />
-        </div>
+        <DashboardBodySkeleton />
       </div>
     </>
   );
