@@ -2,12 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import type { UIMessage } from "ai";
-import { AssistantChat } from "./AssistantChat";
 import { ThreadSidebar } from "./ThreadSidebar";
 import { MobileThreadSheet } from "./MobileThreadSheet";
 import { PageHeader } from "@/components/ui/PageHeader";
 import type { ChatThreadSummary } from "@/lib/assistant/sessions";
+
+// Lazy-load the chat engine (the AI SDK, "ai", and the streamdown markdown renderer) so it stays out
+// of this route's first-load JS, exactly as the dashboard dock does. The page header and thread rail
+// paint immediately from server HTML; the heavy chat bundle streams in behind a matching-height
+// fallback so the layout does not shift.
+const AssistantChat = dynamic(() => import("./AssistantChat").then((m) => m.AssistantChat), {
+  ssr: false,
+  loading: () => <div className="flex flex-1 items-center justify-center text-sm text-gray-500">Loading…</div>,
+});
 
 // The interactive shell for the assistant page. The page (a Server Component) loads the saved threads
 // and the open conversation and hands them here with a stable chatId. This component owns the small

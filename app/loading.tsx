@@ -1,8 +1,12 @@
 import { Skeleton } from "@/components/ui/Skeleton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
-// Streamed instantly inside the shell while the dashboard's data resolves, so the layout paints
-// immediately (good LCP). The reserved heights mirror the real sections (KPI row, charts, drivers,
-// word cloud, distributions) so almost nothing shifts when the content swaps in (low CLS).
+// Streamed instantly inside the shell while the dashboard's data resolves. The real page title and
+// subtitle render here as actual text (not skeletons) so First Contentful Paint fires on the heading
+// at ~TTFB instead of waiting for the data query — the dashboard's `Home` awaits its aggregation
+// before returning any JSX, so without this the first real text only appears once the DB query lands.
+// The reserved heights below mirror the real sections (KPI row, charts, drivers, word cloud,
+// distributions) so almost nothing shifts when the content swaps in (low CLS).
 export default function Loading() {
   return (
     <>
@@ -13,8 +17,10 @@ export default function Loading() {
         </div>
       </div>
       <div className="px-4 pb-16 pt-6 md:px-8">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="mt-2 h-4 w-96 max-w-full" />
+        <PageHeader
+          title="Sentiment"
+          subtitle="How visitors rate and review each suburb, drawn from Google reviews: ratings, recurring themes, and sentiment over the past three years."
+        />
         <hr className="my-8 border-gray-200" />
 
         {/* KPI row */}
